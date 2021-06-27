@@ -67,8 +67,10 @@ data <- GDCprepare(query,directory = "TCGA",summarizedExperiment = F,
 library(SummarizedExperiment)
 expr <- assay(data)
 dim(expr)
+class(expr)
+readr::write_tsv(as.data.frame(expr),file = "TCGA_ESCA_mRNA_count.tsv")
 
-write.csv(expr,file = "TCGA_ESCA_mRNA_count.csv")
+df <- readr::read_tsv("TCGA_ESCA_mRNA_count.tsv")
 
 gene_v22 <- read.csv("~/Downloads/gencode.gene.info.v22 (1).tsv",sep = "\t")
 dim(gene_v22)

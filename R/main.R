@@ -107,7 +107,6 @@ readFile <-function(cancer,study,dataOrigin,isLocalPath=global_env$isLocalPath){
     path <- res$localPath
     if(!file.exists(path)){
       return(message("文件不存在！"))
-
     }
   }else{
     path <- paste0(global_env$remote,"/", res$networkPath)
@@ -115,7 +114,9 @@ readFile <-function(cancer,study,dataOrigin,isLocalPath=global_env$isLocalPath){
 
   message("File loading path: ",path)
   if(res$fileType=="csv"){
-    df <- read.csv(path)
+    df <- read.csv(path,row.names = 1)
+  }else if(res$fileType=="tsv"){
+    df <- readr::read_tsv(path)
   }else{
     return(message("文件类型不支持！"))
   }
