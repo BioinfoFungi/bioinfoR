@@ -4,7 +4,7 @@ global_env$headers <- c(
   #"Content-Type"="application/json"
 )
 global_env$baseUrl <-  "http://localhost:8080/api"
-global_env$remote <-  "http://localhost:8080"
+global_env$remote <-  NULL
 global_env$isLocalPath <- T
 {
   if(file.exists("~/.bioinfo/authorize")){
@@ -14,23 +14,6 @@ global_env$isLocalPath <- T
 }
 
 
-#' usage custom url and authorization token
-#'
-#' @export
-initParam <- function(baseUrl=NULL,authorization=NULL,remote=NULL,isLocalPath=NULL){
-  if(!is.null(baseUrl)){
-    global_env$baseUrl <- paste0(baseUrl,"/api")
-  }
-  if(!is.null(authorization)){
-    global_env$headers["Authorization_SDK"] <- authorization
-  }
-  if(!is.null(remote)){
-    global_env$remote <-remote
-  }
-  if(!is.null(isLocalPath)){
-    global_env$isLocalPath=isLocalPath
-  }
-}
 
 
 #' @export
@@ -71,6 +54,32 @@ globalConfig <- function(){
   res <- http_get(url="/global",showStatus=T)
   return(res)
 }
+
+
+#' usage custom url and authorization token
+#'
+#' @export
+initParam <- function(baseUrl=NULL,authorization=NULL,remote=NULL,isLocalPath=NULL){
+  if(!is.null(baseUrl)){
+    global_env$baseUrl <- paste0(baseUrl,"/api")
+  }
+  if(!is.null(authorization)){
+    global_env$headers["Authorization_SDK"] <- authorization
+  }
+  if(!is.null(remote)){
+    global_env$remote <-remote
+  }
+  else{
+    global_env$remote <-globalConfig()$Attachment_base_url
+  }
+  if(!is.null(isLocalPath)){
+    global_env$isLocalPath=isLocalPath
+  }
+}
+#initParam()
+
+
+
 
 #' find one cancer study
 #'

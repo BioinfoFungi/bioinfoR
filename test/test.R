@@ -7,8 +7,22 @@ showParam()
 headers <- c(
   "Authorization_SDK"= "wangyang1749748955"
 )
-res <- GET(paste0("http://8.140.164.151:8080","/global"), add_headers(headers))
+res <- GET("http://localhost:8080/api/lncRNA", add_headers(headers))
 content(res)
+resp <- POST("http://localhost:8080/api/miRNA",
+             add_headers(headers),
+             encode="json",
+             body = list(name="miRNAGAPDH"))
+res <- apply(project_df, 1, function(x){
+  message(x[1])
+  resp <- POST("http://localhost:8080/api/lncRNA",
+               add_headers(headers),
+               encode="json",
+               body = list(name=x[1]))
+})
+
+
+  content(res)
 
 global <- globalConfig()
 
@@ -18,7 +32,7 @@ global$cancerStudy
 
 #query <- list(cancer = "BRAC", study="transcript",dataOrigin="TCGA")
 #http_get("/cancer_study/findOne",query = query)
-df <- readFile("BRAC","transcript","TCGA")
+df <- readFile("ESCA","transcript","TCGA")
 head(df)
 
 #body <- list(projectId=55,
