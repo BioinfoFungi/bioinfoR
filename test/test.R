@@ -1,0 +1,63 @@
+
+library(BioinfoR)
+#authorize <- read.table("~/.bioinfo/authorize")
+#initParam(authorization = authorize$V1,isLocalPath = T)
+initParam(baseUrl = "http://8.140.164.151:8080")
+showParam()
+headers <- c(
+  "Authorization_SDK"= "wangyang1749748955"
+)
+res <- GET(paste0("http://8.140.164.151:8080","/global"), add_headers(headers))
+content(res)
+
+global <- globalConfig()
+
+global
+global$attachment
+global$cancerStudy
+
+#query <- list(cancer = "BRAC", study="transcript",dataOrigin="TCGA")
+#http_get("/cancer_study/findOne",query = query)
+df <- readFile("BRAC","transcript","TCGA")
+head(df)
+
+#body <- list(projectId=55,
+#             name="testets",
+#             path="http://baidu.com/",
+#             mediaType='svg')
+addAttachment(projectId = 4,path="http://baidu.com/test.csv")
+addAttachment(projectId = 56,path="http://baidu.com/test.csv",fileName = "testFileName",fileType = "png")
+
+uploadAttachment(projectId = 4,path = "~/Downloads/clinical_arrange.csv")
+uploadAttachment(projectId = 4,path = "README.md",fileName = "testFileName",fileType = "png")
+
+updateProject(projectId = 56,jupyterUrl = "123456")
+updateProject(projectId = 56,jupyterUrl = "123456",projectStatus = 1)
+
+#body <- list(cancer = "BRAC",
+ #            study= "transcript",
+  #           dataOrigin="TCGA",
+   #          filename="123456.txt")
+addCancerStudy(cancer = "COAD",study = "transcript",dataOrigin = "TCGA",path = "1234567.txt")
+addCancerStudy(cancer = "COAD",study = "transcript",dataOrigin = "TCGA",path = "123456.txt",fileType = "svg",fileName = "testFilename")
+addCancerStudy(cancer = "COAD",study = "transcript",dataOrigin = "TCGA",path = "123456.csv",width = 300,height = 300)
+
+
+df <- read.csv("~/Downloads/clinical_arrange.csv")
+dim(df)
+
+uploadCancerStudy(cancer = "COAD",study = "Methylation",dataOrigin = "GEO",path = "~/Downloads/clinical_arrange.csv")
+uploadCancerStudy(cancer = "BRAC",study = "transcript",dataOrigin = "TCGA",path = "~/Downloads/clinical_arrange.csv",fileType = "csv",fileName = "testFile")
+uploadCancerStudy(cancer = "BRAC",study = "transcript",dataOrigin = "TCGA",path = "~/Downloads/clinical_arrange.csv",width = 300,height = 300)
+df <- readFile("COAD","transcript","TCGA")
+head(df)
+
+addCancer(name = "食管癌",enName = "ESCA")
+listAllCancer()
+
+addStudy(name = "基因表达count数据",enName = "HTSeq-Counts")
+addDataOrigin(name = "The Cancer Genome Atlas",enName = "TCGA")
+
+
+listAllStudy()
+listAllDataOrigin()
