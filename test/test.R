@@ -2,10 +2,10 @@
 library(BioinfoR)
 #authorize <- read.table("~/.bioinfo/authorize")
 #initParam(authorization = authorize$V1,isLocalPath = T)
-initParam(baseUrl = "http://8.140.164.151:8080",authorization = "")
+initParam(baseUrl = "http://8.140.164.151:8080",authorization = NULL)
 showParam()
 headers <- c(
-  "Authorization_SDK"= "wangyang1749748955"
+  "Authorization_SDK"= ""
 )
 res <- GET("http://localhost:8080/api/lncRNA", add_headers(headers))
 content(res)
@@ -75,3 +75,38 @@ addDataOrigin(name = "The Cancer Genome Atlas",enName = "TCGA")
 
 listAllStudy()
 listAllDataOrigin()
+#
+initParam(baseUrl = "http://8.140.164.151:8080",remote = "/home/wangyang/workspace/www/data/TCGADOWNLOAD",isLocalPath = F)
+showParam()
+getFilePath("init_miRNA")
+
+gff_v22 <- readFileByName("gff_v22",isLocalPath = F)
+
+readr::write_tsv(gff_v22,file = "/home/wangyang/workspace/www/data/TCGADOWNLOAD/data/gff_v22.tsv")
+
+
+readFile("CHOL","FPKM","TCGA",isLocalPath = F)
+
+fit <- tcgaSurvival("CHOL","TP53")
+tcgaGGsurvplot(fit)
+
+library(survminer)
+ggsurvplot(fit$fit, pval=T, risk.table=F,
+           risk.table.height = 0.3,
+           data = fit$expr,
+           xlab="Time(Year)",
+           pval.size=7,
+           font.x = c(18),
+           font.y = c(18),
+           font.legend=c(18),
+           legend.title = "",
+           legend.labs = c("high expression", "low expression"),
+           title="TP53")
+
+
+
+
+
+
+
+

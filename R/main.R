@@ -45,6 +45,7 @@ http_get <- function(url,query=NULL,showStatus=F){
   return(data)
 }
 
+
 #' globalConfig
 #'
 #' API: /global
@@ -106,7 +107,7 @@ readFile <-function(cancer,study,dataOrigin,isLocalPath=global_env$isLocalPath){
   if(isLocalPath){
     path <- res$localPath
     if(!file.exists(path)){
-      return(message("文件不存在！"))
+      return(message(path,"不存在！"))
     }
   }else{
     path <- paste0(global_env$remote,"/", res$networkPath)
@@ -123,17 +124,58 @@ readFile <-function(cancer,study,dataOrigin,isLocalPath=global_env$isLocalPath){
   return(df)
 }
 
+#' @export
+getFilePath <-function(name,isLocalPath=global_env$isLocalPath){
+  res <- http_get(paste0("/organize_file/findByEnName/",name))
+  PATH <- NULL
+  if(isLocalPath){
+    PATH <-res$localPath
+  }else{
+    PATH <-res$networkPath
+  }
+  return(PATH)
+}
 
+#' @export
+readFileByName <-function(name,isLocalPath=global_env$isLocalPath){
+  res <- http_get(paste0("/organize_file/findByEnName/",name))
+  if(isLocalPath){
+    path <- res$localPath
+    if(!file.exists(path)){
+      return(message(path,"不存在！"))
+    }
+  }else{
+    path <- paste0(global_env$remote,"/", res$networkPath)
+    if(substr(path, 1, 4)!="http" && !file.exists(path)){
+      return(message(path," is not found in your computer!"))
+    }
+  }
+
+  message("File loading path: ",path)
+  if(res$fileType=="csv"){
+    df <- read.csv(path,row.names = 1)
+  }else if(res$fileType=="tsv"){
+    df <- readr::read_tsv(path)
+  }else{
+    return(message("文件类型不支持！"))
+  }
+  return(df)
+}
+
+
+#' @export
 listAllCancer <- function(){
   res <- http_get("/cancer/listAll")
   return(res)
 }
 
+#' @export
 listAllStudy <- function(){
   res <- http_get("/study/listAll")
   return(res)
 }
 
+#' @export
 listAllDataOrigin <- function(){
   res <- http_get("/data_origin/listAll")
   return(res)
@@ -248,6 +290,7 @@ addStudy <- function(name,enName){
   return(res)
 }
 
+
 #' @export
 addDataOrigin <- function(name,enName){
   body <- list(name=name,
@@ -255,6 +298,24 @@ addDataOrigin <- function(name,enName){
   res <- http_post("/data_origin",body = body)
   return(res)
 }
+
+
+
+#' @export
+add <- function(name,enName){
+  body <- list(name=name,
+               enName=enName)
+  res <- http_post("/data_origin",body = body)
+  return(res)
+}
+
+
+
+
+
+
+
+
 
 
 
