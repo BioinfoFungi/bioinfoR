@@ -19,6 +19,14 @@ global <- globalConfig()
 fit <- tcgaSurvival("CHOL","TP53")
 tcgaGGsurvplot(fit)
 ```
+```
+png(filename = "figure/TP53.png",width = 7,height = 7,res = 300,units = "in")
+tcgaGGsurvplot(fit)
+dev.off()
+```
+```
+
+```
 ![](vignettes/survival.png)
 
 ## 开发
