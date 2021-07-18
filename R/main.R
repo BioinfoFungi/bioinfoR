@@ -3,9 +3,12 @@ global_env$headers <- c(
   "Authorization_SDK"= ""
   #"Content-Type"="application/json"
 )
-global_env$baseUrl <-  "http://localhost:8080/api"
+global_env$host <-"http://localhost:8080"
+global_env$baseUrl <-  paste0(global_env$host,"/api")
 global_env$remote <-  NULL
 global_env$isLocalPath <- T
+global_env$isAbsolutePath <- F
+global_env$pathPrefix <- NULL
 {
   if(file.exists("~/.bioinfo/authorize")){
     authorize <- read.table("~/.bioinfo/authorize")
@@ -29,7 +32,7 @@ showParam <- function(){
 #' http get method
 #'
 #' @param url url
-#' @importFrom httr GET add_headers content
+  #' @importFrom httr GET add_headers content
 #' @return list
 #'
 #' @export
@@ -43,6 +46,37 @@ http_get <- function(url,query=NULL,showStatus=F){
 
   data <- resp[["data"]]
   return(data)
+}
+
+#' @export
+getFileById <-function(Id){
+  res <- http_get(paste0("/base_file/findById/",Id))
+  return(res)
+}
+
+#' @export
+download <- function(fromurl,toPath){
+  full_url <- paste0(global_env$baseUrl,fromurl)
+  message(toPath," not found, start downloading from :",full_url)
+  download.file(full_url,
+                destfile=toPath,headers=global_env$headers)
+  message("Save the file to: ",toPath)
+}
+
+
+#' @export
+downloadById <- function(id,toPath){
+  if(!is.null(toPath) && !dir.exists(dirname(toPath))){
+    dir.create(dirname(toPath))
+  }
+  download(paste0("/base_file/downloadById/",id),toPath)
+}
+
+#' @export
+downloadFileById <- function(id,toPath=NULL){
+  res <- getFileById(id)
+  basename <- basename(res$absolutePath)
+  downloadById(id,paste0(c(toPath,basename),collapse = "/"))
 }
 
 
@@ -60,9 +94,9 @@ globalConfig <- function(){
 #' usage custom url and authorization token
 #'
 #' @export
-initParam <- function(baseUrl=NULL,authorization=NULL,remote=NULL,isLocalPath=NULL){
-  if(!is.null(baseUrl)){
-    global_env$baseUrl <- paste0(baseUrl,"/api")
+initParam <- function(host=NULL,authorization=NULL,remote=NULL,isLocalPath=NULL){
+  if(!is.null(host)){
+    global_env$host <- host
   }
   if(!is.null(authorization)){
     global_env$headers["Authorization_SDK"] <- authorization
@@ -70,16 +104,11 @@ initParam <- function(baseUrl=NULL,authorization=NULL,remote=NULL,isLocalPath=NU
   if(!is.null(remote)){
     global_env$remote <-remote
   }
-  else{
-    global_env$remote <-globalConfig()$Attachment_base_url
-  }
   if(!is.null(isLocalPath)){
     global_env$isLocalPath=isLocalPath
   }
 }
 #initParam()
-
-
 
 
 #' find one cancer study
@@ -91,32 +120,45 @@ initParam <- function(baseUrl=NULL,authorization=NULL,remote=NULL,isLocalPath=NU
 #'
 #' @examples
 #'
-#' getFile("BRAC","transcript","TCGA")
+#' getCancerStudyFile("BRAC","transcript","TCGA")
 #'
 #' @export
-getFile <- function(cancer,study,dataOrigin){
+getCancerStudyFile <- function(cancer,study,dataOrigin){
   query <- list( cancer = cancer, study=study,dataOrigin=dataOrigin)
   res <- http_get("/cancer_study/findOne",query = query)
   return(res)
 }
 
 
-#' @export
-readFile <-function(cancer,study,dataOrigin,isLocalPath=global_env$isLocalPath){
-  res <- getFile(cancer,study,dataOrigin)
+
+readFileByData <-function(data,isLocalPath=global_env$isLocalPath){
+  path<- NULL
   if(isLocalPath){
-    path <- res$localPath
-    if(!file.exists(path)){
-      return(message(path,"不存在！"))
+    # 如果服务器在本地
+    if(grepl("localhost",global_env$host) | global_env$isAbsolutePath){
+      path <- data$absolutePath
+      if(!file.exists(path)){
+        message("服务器上不存在该文件!")
+      }
+    }else{
+      path <- paste0(c(global_env$pathPrefix,data$relativePath),collapse =   "/")
+
+      if(!file.exists(path)){
+        downloadById(id =  data$id,toPath = path)
+      }
     }
   }else{
-    path <- paste0(global_env$remote,"/", res$networkPath)
-  }
+    if(data$location=="LOCAL"){
+      path <- paste0(c(global_env$host,data$relativePath),collapse = "/")
+    }else{
+      message("oss文件加载暂不支持")
+    }
 
-  message("File loading path: ",path)
-  if(res$fileType=="csv"){
-    df <- read.csv(path,row.names = 1)
-  }else if(res$fileType=="tsv"){
+  }
+  message("Load file from: ",path)
+  if(data$fileType=="csv"){
+    df <- readr::read_csv(path)
+  }else if(data$fileType=="tsv"){
     df <- readr::read_tsv(path)
   }else{
     return(message("文件类型不支持！"))
@@ -124,17 +166,37 @@ readFile <-function(cancer,study,dataOrigin,isLocalPath=global_env$isLocalPath){
   return(df)
 }
 
+#' organize_file cancer_study attachment base_file
+#'
 #' @export
-getFilePath <-function(name,isLocalPath=global_env$isLocalPath){
-  res <- http_get(paste0("/organize_file/findByEnName/",name))
-  PATH <- NULL
-  if(isLocalPath){
-    PATH <-res$localPath
-  }else{
-    PATH <-res$networkPath
+getFileByEnName <-function(enName,type){
+  if(is.null(type)){
+    type<- "base_file"
   }
-  return(PATH)
+  res <- http_get(paste0("/",type,"/findOne/",enName))
+  return(res)
 }
+
+#' @export
+readFileByEnName <- function(enName,type=NULL,isLocalPath=global_env$isLocalPath){
+  res <- getFileByEnName(enName,type)
+  readFileByData(res,isLocalPath)
+}
+
+
+
+#' @export
+readFileById <-function(id,isLocalPath=global_env$isLocalPath){
+  res <- getFileById(id)
+  readFileByData(res,isLocalPath)
+}
+
+#' @export
+readCancerFile <-function(cancer,study,dataOrigin,isLocalPath=global_env$isLocalPath){
+  res <- getCancerStudyFile(cancer,study,dataOrigin)
+  readFileByData(res,isLocalPath)
+}
+
 
 #' @export
 readFileByName <-function(name,isLocalPath=global_env$isLocalPath){
@@ -206,71 +268,37 @@ http_post <- function(url,body,encode = "json",showStatus=F){
 #(r <- POST(paste0(baseUrl,"/attachment"), add_headers(headers),encode = "json",body = body))
 
 #' @export
-addAttachment <- function(projectId,path,fileName=NULL,fileType=NULL){
+addAttachment <- function(projectId,absolutePath,relativePath=NULL,enNamefileName=NULL,fileType=NULL){
   body <- list(projectId=projectId,
-               path=path,
+               absolutePath=absolutePath,
+               relativePath=relativePath,
+               enName=enName,
                fileName=fileName,
                fileType=fileType)
   res <- http_post("/attachment",body = body)
   return(res)
 }
-
-#' @importFrom httr upload_file
 #' @export
-uploadAttachment <- function(projectId,path,fileName=NULL,fileType=NULL){
-  body <- list(projectId=projectId,
-               file=upload_file(path),
-               fileName=fileName,
-               fileType=fileType)
-  res <- http_post("/attachment/upload",body = body,encode = "multipart")
-  return(res)
-}
-
-# (r <- POST(paste0(baseUrl,"/project/updateSDK/56"), add_headers(headers),encode = "json",body = list(jupyterUrl = "testets", projectStatus= 2)))
-
-#' @export
-updateProject <- function(projectId,jupyterUrl,projectStatus=0){
-  body <- list(jupyterUrl=jupyterUrl,
-               projectStatus=projectStatus)
-  res <- http_post(paste0("/project/updateSDK/",projectId),body = body)
-  return(res)
-}
-
-
-#(r <- POST(paste0(baseUrl,"/cancer_study"), add_headers(headers),encode = "json",body = body))
-
-#' @export
-addCancerStudy <- function(cancer,study,dataOrigin,path,fileType=NULL,fileName=NULL,width=NULL,height=NULL){
+addCancerStudy <- function(cancer,study,dataOrigin,absolutePath,relativePath=NULL,fileType=NULL,fileName=NULL){
   body <- list(cancer = cancer,
                study= study,
                dataOrigin=dataOrigin,
-               path=path,
+               absolutePath=absolutePath,
+               relativePath=relativePath,
                fileType=fileType,
-               fileName=fileName,
-               width=width,
-               height=height)
+               fileName=fileName)
   res <- http_post("/cancer_study",body = body)
   return(res)
 }
 
-
-
-#(r <- POST(paste0(baseUrl,"/cancer_study/upload"), add_headers(headers),encode = "multipart",body = body))
-
-
-#' @importFrom httr upload_file
 #' @export
-uploadCancerStudy<- function(cancer,study,dataOrigin,path,fileType=NULL,fileName=NULL,width=NULL,height=NULL){
-  body <- list(cancer = cancer,
-               study= study,
-               dataOrigin=dataOrigin,
-               file=upload_file(path),
+addOrganizeFile <- function(enName,absolutePath,relativePath=NULL,fileType=NULL,fileName=NULL){
+  body <- list(enName = enName,
+               absolutePath= absolutePath,
+               relativePath=relativePath,
                fileType=fileType,
-               fileName=fileName,
-               width=width,
-               height=height)
-
-  res <- http_post("/cancer_study/upload",body = body,encode = "multipart")
+               fileName=fileName)
+  res <- http_post("/organize_file",body = body)
   return(res)
 }
 
@@ -298,16 +326,69 @@ addDataOrigin <- function(name,enName){
   res <- http_post("/data_origin",body = body)
   return(res)
 }
+#################################################################
 
+
+#' @importFrom httr upload_file
+#' @export
+uploadAttachment <- function(projectId,path,enName=NULL,fileName=NULL,fileType=NULL){
+  body <- list(projectId=projectId,
+               file=upload_file(path),
+               enName=enName,
+               fileName=fileName,
+               fileType=fileType)
+  res <- http_post("/attachment/upload",body = body,encode = "multipart")
+  return(res)
+}
+
+#' @importFrom httr upload_file
+#' @export
+uploadCancerStudy<- function(cancer,study,dataOrigin,path,fileType=NULL,fileName=NULL){
+  body <- list(cancer = cancer,
+               study= study,
+               dataOrigin=dataOrigin,
+               file=upload_file(path),
+               fileType=fileType,
+               fileName=fileName)
+
+  res <- http_post("/cancer_study/upload",body = body,encode = "multipart")
+  return(res)
+}
+
+#' @importFrom httr upload_file
+#' @export
+uploadOrganizeFile<- function(path,enName=NULL,fileType=NULL,fileName=NULL){
+  body <- list(file=upload_file(path),
+               enName=enName,
+               fileName=fileName,
+               fileType=fileType)
+  res <- http_post("/organize_file/upload",body = body,encode = "multipart")
+  return(res)
+}
 
 
 #' @export
-add <- function(name,enName){
-  body <- list(name=name,
-               enName=enName)
-  res <- http_post("/data_origin",body = body)
+updateProject <- function(projectId,jupyterUrl,projectStatus=0){
+  body <- list(jupyterUrl=jupyterUrl,
+               projectStatus=projectStatus)
+  res <- http_post(paste0("/project/updateSDK/",projectId),body = body)
   return(res)
 }
+
+
+#(r <- POST(paste0(baseUrl,"/cancer_study"), add_headers(headers),encode = "json",body = body))
+
+
+
+
+#(r <- POST(paste0(baseUrl,"/cancer_study/upload"), add_headers(headers),encode = "multipart",body = body))
+
+
+
+
+
+
+
 
 
 
