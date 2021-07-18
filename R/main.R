@@ -1,4 +1,5 @@
 global_env <- new.env()
+global_env$authorize <- ""
 global_env$headers <- c(
   "Authorization_SDK"= ""
   #"Content-Type"="application/json"
@@ -13,6 +14,7 @@ global_env$pathPrefix <- NULL
   if(file.exists("~/.bioinfo/authorize")){
     authorize <- read.table("~/.bioinfo/authorize")
     global_env$headers["Authorization_SDK"] <-  authorize$V1
+    global_env$authorize<-authorize$V1
   }
 }
 
@@ -26,6 +28,28 @@ showParam <- function(){
               remote=global_env$remote,
               isLocalPath=global_env$isLocalPath))
 }
+
+
+#' usage custom url and authorization token
+#'
+#' @export
+initParam <- function(host=NULL,authorization=NULL,remote=NULL,isLocalPath=NULL){
+  if(!is.null(host)){
+    global_env$host <- host
+    global_env$baseUrl <-  paste0(host,"/api")
+  }
+  if(!is.null(authorization)){
+    global_env$headers["Authorization_SDK"] <- authorization
+    global_env$authorize<-authorization
+  }
+  if(!is.null(remote)){
+    global_env$remote <-remote
+  }
+  if(!is.null(isLocalPath)){
+    global_env$isLocalPath=isLocalPath
+  }
+}
+#initParam()
 
 ###########################GET##################################
 
@@ -48,38 +72,6 @@ http_get <- function(url,query=NULL,showStatus=F){
   return(data)
 }
 
-#' @export
-getFileById <-function(Id){
-  res <- http_get(paste0("/base_file/findById/",Id))
-  return(res)
-}
-
-#' @export
-download <- function(fromurl,toPath){
-  full_url <- paste0(global_env$baseUrl,fromurl)
-  message(toPath," not found, start downloading from :",full_url)
-  download.file(full_url,
-                destfile=toPath,headers=global_env$headers)
-  message("Save the file to: ",toPath)
-}
-
-
-#' @export
-downloadById <- function(id,toPath){
-  if(!is.null(toPath) && !dir.exists(dirname(toPath))){
-    dir.create(dirname(toPath))
-  }
-  download(paste0("/base_file/downloadById/",id),toPath)
-}
-
-#' @export
-downloadFileById <- function(id,toPath=NULL){
-  res <- getFileById(id)
-  basename <- basename(res$absolutePath)
-  downloadById(id,paste0(c(toPath,basename),collapse = "/"))
-}
-
-
 #' globalConfig
 #'
 #' API: /global
@@ -90,25 +82,46 @@ globalConfig <- function(){
   return(res)
 }
 
-
-#' usage custom url and authorization token
-#'
-#' @export
-initParam <- function(host=NULL,authorization=NULL,remote=NULL,isLocalPath=NULL){
-  if(!is.null(host)){
-    global_env$host <- host
+getDownloadPath <- function(id,location=NULL){
+  path <- paste0(global_env$baseUrl,"/base_file/downloadById/",id,
+                 "?authorize=",global_env$authorize)
+  if(!is.null(location)){
+    path<- paste0(path,"&location=",location)
   }
-  if(!is.null(authorization)){
-    global_env$headers["Authorization_SDK"] <- authorization
-  }
-  if(!is.null(remote)){
-    global_env$remote <-remote
-  }
-  if(!is.null(isLocalPath)){
-    global_env$isLocalPath=isLocalPath
-  }
+  return(path)
 }
-#initParam()
+
+
+#' @export
+getFileById <-function(Id){
+  res <- http_get(paste0("/base_file/findById/",Id))
+  return(res)
+}
+
+
+
+
+
+#' @export
+downloadById <- function(id,location=NULL,toPath){
+  if(!is.null(toPath) && !dir.exists(dirname(toPath))){
+    dir.create(dirname(toPath))
+  }
+  path <-  getDownloadPath(id,location)
+  message(toPath," not found, start downloading from :",path)
+  download.file(path,destfile=toPath)
+  message("Save the file to: ",toPath)
+}
+
+#' @export
+downloadFileById <- function(id,toPath=NULL){
+  res <- getFileById(id)
+  basename <- basename(res$absolutePath)
+  downloadById(id,paste0(c(toPath,basename),collapse = "/"))
+}
+
+
+
 
 
 #' find one cancer study
@@ -131,7 +144,7 @@ getCancerStudyFile <- function(cancer,study,dataOrigin){
 
 
 
-readFileByData <-function(data,isLocalPath=global_env$isLocalPath){
+readFileByData <-function(data,location=NULL,isLocalPath=global_env$isLocalPath){
   path<- NULL
   if(isLocalPath){
     # 如果服务器在本地
@@ -141,24 +154,21 @@ readFileByData <-function(data,isLocalPath=global_env$isLocalPath){
         message("服务器上不存在该文件!")
       }
     }else{
-      path <- paste0(c(global_env$pathPrefix,data$relativePath),collapse =   "/")
+      path <- paste0(c(global_env$pathPrefix,data$relativePath),collapse ="/")
+      message("local: ",tools::md5sum(path))
+      message("serve: ",data$md5)
+      if(!file.exists(path)| tools::md5sum(path)!=data$md5){
 
-      if(!file.exists(path)){
-        downloadById(id =  data$id,toPath = path)
+        downloadById(id =  data$id,location=location,toPath = path)
       }
     }
   }else{
-    if(data$location=="LOCAL"){
-      path <- paste0(c(global_env$host,data$relativePath),collapse = "/")
-    }else{
-      message("oss文件加载暂不支持")
-    }
-
+    path <-  getDownloadPath(data$id,location)
   }
   message("Load file from: ",path)
-  if(data$fileType=="csv"){
+  if(data$fileType=="csv" | data$fileType=="csv.gz"){
     df <- readr::read_csv(path)
-  }else if(data$fileType=="tsv"){
+  }else if(data$fileType=="tsv" | data$fileType=="tsv.gz"){
     df <- readr::read_tsv(path)
   }else{
     return(message("文件类型不支持！"))
@@ -178,23 +188,28 @@ getFileByEnName <-function(enName,type){
 }
 
 #' @export
-readFileByEnName <- function(enName,type=NULL,isLocalPath=global_env$isLocalPath){
+readFileByEnName <- function(enName,type=NULL,location=NULL,isLocalPath=global_env$isLocalPath){
   res <- getFileByEnName(enName,type)
-  readFileByData(res,isLocalPath)
+  readFileByData(data = res,location = location,isLocalPath = isLocalPath)
+}
+
+#' @export
+readOrganizeFile <- function(enName,location=NULL,isLocalPath=global_env$isLocalPath){
+  readFileByEnName(enName = enName,type = "organize_file",location =location,isLocalPath = isLocalPath)
 }
 
 
 
 #' @export
-readFileById <-function(id,isLocalPath=global_env$isLocalPath){
+readFileById <-function(id,location=NULL,isLocalPath=global_env$isLocalPath){
   res <- getFileById(id)
-  readFileByData(res,isLocalPath)
+  readFileByData(data = res,location =location ,isLocalPath = isLocalPath)
 }
 
 #' @export
-readCancerFile <-function(cancer,study,dataOrigin,isLocalPath=global_env$isLocalPath){
+readCancerFile <-function(cancer,study,dataOrigin,location=NULL,isLocalPath=global_env$isLocalPath){
   res <- getCancerStudyFile(cancer,study,dataOrigin)
-  readFileByData(res,isLocalPath)
+  readFileByData(data = res,location = location,isLocalPath = isLocalPath)
 }
 
 
@@ -268,7 +283,7 @@ http_post <- function(url,body,encode = "json",showStatus=F){
 #(r <- POST(paste0(baseUrl,"/attachment"), add_headers(headers),encode = "json",body = body))
 
 #' @export
-addAttachment <- function(projectId,absolutePath,relativePath=NULL,enNamefileName=NULL,fileType=NULL){
+addAttachment <- function(projectId,absolutePath,enName=NULL,relativePath=NULL,fileName=NULL,fileType=NULL){
   body <- list(projectId=projectId,
                absolutePath=absolutePath,
                relativePath=relativePath,

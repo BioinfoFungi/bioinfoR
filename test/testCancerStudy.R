@@ -4,18 +4,29 @@ library(BioinfoR)
 ####################################################################
 ## 添加term
 addCancer(name = "食管癌",enName = "ESCA")
+addCancer(name = "结直肠癌",enName = "COAD")
+addCancer(name = "乳腺癌",enName = "BRAC")
 addStudy(name = "count",enName = "count")
 addDataOrigin(name = "TCGA",enName = "TCGA")
 addCancerStudy(cancer = "ESCA",
                study = "count",
                dataOrigin = "TCGA",
-               absolutePath =  "/home/wy/Downloads/TCGA_ACC_Counts.tsv")
+               relativePath = "data/TCGA_ESCA_clinical.tsv",
+               absolutePath =  "/home/wy/Documents/bioinfoR/TCGA_ESCA_clinical.tsv")
+addCancerStudy(cancer = "BRAC",
+               study = "count",
+               dataOrigin = "TCGA",
+               relativePath = "data/TCGA_ACC_Counts.tsv.gz",
+               absolutePath =  "/home/wy/Downloads/TCGA_ACC_Counts.tsv.gz")
 
 ## 添加organizeFile
-addOrganizeFile(enName = "test123",
+addOrganizeFile(enName = "132456",
                 absolutePath = "/home/wy/Downloads/TCGA_ACC_Counts.tsv",
                 relativePath = "Downloads/TCGA_ACC_Counts.tsv")
-  ## 保存 Attachment
+addOrganizeFile(enName = "init_lncRNA",
+                absolutePath = "/home/wy/Downloads/init_lncRNA.tsv.gz",
+                relativePath = "Downloads/init_lncRNA.tsv.gz")
+    ## 保存 Attachment
 addAttachment(projectId = 55,absolutePath = "/home/wy/Downloads/TCGA_ACC_Counts.tsv")
 
 
@@ -23,6 +34,7 @@ addAttachment(projectId = 55,absolutePath = "/home/wy/Downloads/TCGA_ACC_Counts.
 ####################################################################
 # 读取测试
 ####################################################################
+#ALIOSS,LOCAL;
 (function(){
   cancer="ESCA"
   study="count"
@@ -68,10 +80,10 @@ addAttachment(projectId = 55,absolutePath = "/home/wy/Downloads/TCGA_ACC_Counts.
     return(message("文件类型不支持！"))
   }
 })()
-initParam(host = "http://127.0.0.1")
-readCancerFile(cancer = "ESCA",
+initParam(host = "http://127.0.0.1:8080")
+readCancerFile(cancer = "BRAC",
                study = "count",
-               dataOrigin = "TCGA")
+               dataOrigin = "TCGA",isLocalPath = F)
 
 readFileById(id=1)
 readFileByEnName(enName="TCGA_ACC_Counts",type = "attachment")
@@ -110,9 +122,9 @@ downloadFileById(id = 1)
   return(res)
 })
 uploadAttachment(  projectId=55,
-                   path<- "TCGA_ACC_Counts.tsv")
+                   path<- "data/TCGA_ESCA_clinical.tsv")
 
-(function(){
+  (function(){
   library(httr)
   path<- "TCGA_ACC_Counts.tsv"
   enName<- "aaaaa"
@@ -125,7 +137,7 @@ uploadAttachment(  projectId=55,
   res <- http_post("/organize_file/upload",body = body,encode = "multipart")
   return(res)
 })
-uploadOrganizeFile( path="TCGA_ACC_Counts.tsv",
+uploadOrganizeFile( path="data/TCGA_ESCA_clinical.tsv",
                     enName= "aaaaa")
 uploadOrganizeFile( path="TCGA_ACC_Counts.tsv")
 
@@ -150,13 +162,30 @@ uploadOrganizeFile( path="TCGA_ACC_Counts.tsv")
 
   res <- http_post("/cancer_study/upload",body = body,encode = "multipart")
 })
-uploadCancerStudy( cancer = "ESCA",
+uploadCancerStudy( cancer = "COAD",
                    study = "count",
                    dataOrigin = "TCGA",
-                   path="TCGA_ACC_Counts.tsv")
+                   path="data/TCGA_ESCA_clinical.tsv")
+####################################################################
+# 真正远程测试
+####################################################################
+initParam(host  = "http://8.140.164.151:8080")
+showParam()
+#ALIOSS,LOCAL;
+readCancerFile(cancer = "ESCA",
+               study = "clinical",
+               dataOrigin = "TCGA",isLocalPath = F,location="ALIOSS")
 
+library(tools)
+#md5sum(dir(R.home(), pattern = "^COPY", full.names = TRUE))
+md5sum("data/TCGA_ESCA_clinical.tsv")
 
+url <- "http://localhost:8080/api/base_file/downloadById/1?authorize=wangyang1749748955"
+readr::read_tsv("http://127.0.0.1:8080/api/base_file/downloadById/13?authorize=wangyang1749748955")
+read.csv("http://127.0.0.1:8080/api/base_file/downloadById/13?authorize=wangyang1749748955",sep = "\t")
+x <- read.csv(url, header=FALSE, stringsAsFactors=FALSE, fileEncoding="latin1")
+readr::read_tsv("http://wangyang-bucket.oss-cn-beijing.aliyuncs.com/data/TCGA_ESCA_clinical.tsv.gz")
 
-
-
+initParam(host = "http://127.0.0.1:8080")
+readOrganizeFile("aaaaa",isLocalPath = T,location = "ALIOSS")
 

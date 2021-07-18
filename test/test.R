@@ -2,7 +2,7 @@
 library(BioinfoR)
 #authorize <- read.table("~/.bioinfo/authorize")
 #initParam(authorization = authorize$V1,isLocalPath = T)
-initParam(baseUrl = "http://8.140.164.151:8080",authorization = NULL)
+initParam(host  = "http://8.140.164.151:8080",authorization = NULL)
 showParam()
 headers <- c(
   "Authorization_SDK"= ""

@@ -9,7 +9,7 @@
 
 library(TCGAbiolinks)
 library(BioinfoR)
-initParam(baseUrl = "http://8.140.164.151:8080")
+
 #initParam(baseUrl = "http://localhost:8080")
 showParam()
 
