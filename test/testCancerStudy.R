@@ -81,9 +81,10 @@ addAttachment(projectId = 55,absolutePath = "/home/wy/Downloads/TCGA_ACC_Counts.
   }
 })()
 initParam(host = "http://127.0.0.1:8080")
-readCancerFile(cancer = "BRAC",
+df <- readCancerFile(cancer = "BRAC",
                study = "count",
-               dataOrigin = "TCGA",isLocalPath = F)
+               dataOrigin = "TCGA",isLocalPath = T,location = "LOCAL")
+dim(df)
 
 readFileById(id=1)
 readFileByEnName(enName="TCGA_ACC_Counts",type = "attachment")
@@ -184,8 +185,13 @@ url <- "http://localhost:8080/api/base_file/downloadById/1?authorize=wangyang174
 readr::read_tsv("http://127.0.0.1:8080/api/base_file/downloadById/13?authorize=wangyang1749748955")
 read.csv("http://127.0.0.1:8080/api/base_file/downloadById/13?authorize=wangyang1749748955",sep = "\t")
 x <- read.csv(url, header=FALSE, stringsAsFactors=FALSE, fileEncoding="latin1")
-readr::read_tsv("http://wangyang-bucket.oss-cn-beijing.aliyuncs.com/data/TCGA_ESCA_clinical.tsv.gz")
+readr::read_tsv("http://localhost:8080/gzip")
+con <- gzcon(url("http://localhost:8080/gzip"))
+txt <- readLines(con)
+read.csv(textConnection(txt),sep = "\t")
 
+data.table::fread("http://localhost:8080/gzip")
 initParam(host = "http://127.0.0.1:8080")
 readOrganizeFile("aaaaa",isLocalPath = T,location = "ALIOSS")
-
+df <- readGzip("http://localhost:8080/api/base_file/downloadById/13?authorize=wangyang1749748955")
+dim(df)

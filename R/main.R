@@ -49,7 +49,12 @@ initParam <- function(host=NULL,authorization=NULL,pathPrefix=NULL,isLocalPath=N
     global_env$pathPrefix <-pathPrefix
   }
 }
-#initParam()
+#' @export
+readGzip <- function(file_url) {
+  con <- gzcon(url(file_url))
+  txt <- readLines(con)
+  return(read.csv(textConnection(txt),sep = "\t"))
+}
 
 ###########################GET##################################
 
@@ -165,6 +170,11 @@ readFileByData <-function(data,location=NULL,isLocalPath=global_env$isLocalPath)
     }
   }else{
     path <-  getDownloadPath(data$id,location)
+    if(data$fileType=="tsv.gz"){
+      df <- readGzip(path)
+      message("Load network file from: ",path)
+      return(df)
+    }
   }
   message("Load file from: ",path)
   if(data$fileType=="csv" | data$fileType=="csv.gz"){
