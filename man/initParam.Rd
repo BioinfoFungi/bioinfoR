@@ -4,7 +4,12 @@
 \alias{initParam}
 \title{usage custom url and authorization token}
 \usage{
-initParam(host = NULL, authorization = NULL, remote = NULL, isLocalPath = NULL)
+initParam(
+  host = NULL,
+  authorization = NULL,
+  pathPrefix = NULL,
+  isLocalPath = NULL
+)
 }
 \description{
 usage custom url and authorization token

@@ -6,7 +6,6 @@ global_env$headers <- c(
 )
 global_env$host <-"http://localhost:8080"
 global_env$baseUrl <-  paste0(global_env$host,"/api")
-global_env$remote <-  NULL
 global_env$isLocalPath <- T
 global_env$isAbsolutePath <- F
 global_env$pathPrefix <- NULL
@@ -24,8 +23,9 @@ global_env$pathPrefix <- NULL
 #' @export
 showParam <- function(){
   return(list(headers=global_env$headers,
+              host=global_env$host,
               baseUrl=global_env$baseUrl,
-              remote=global_env$remote,
+              pathPrefix=global_env$pathPrefix,
               isLocalPath=global_env$isLocalPath))
 }
 
@@ -33,7 +33,7 @@ showParam <- function(){
 #' usage custom url and authorization token
 #'
 #' @export
-initParam <- function(host=NULL,authorization=NULL,remote=NULL,isLocalPath=NULL){
+initParam <- function(host=NULL,authorization=NULL,pathPrefix=NULL,isLocalPath=NULL){
   if(!is.null(host)){
     global_env$host <- host
     global_env$baseUrl <-  paste0(host,"/api")
@@ -42,11 +42,11 @@ initParam <- function(host=NULL,authorization=NULL,remote=NULL,isLocalPath=NULL)
     global_env$headers["Authorization_SDK"] <- authorization
     global_env$authorize<-authorization
   }
-  if(!is.null(remote)){
-    global_env$remote <-remote
-  }
   if(!is.null(isLocalPath)){
     global_env$isLocalPath=isLocalPath
+  }
+  if(!is.null(pathPrefix)){
+    global_env$pathPrefix <-pathPrefix
   }
 }
 #initParam()
@@ -104,8 +104,9 @@ getFileById <-function(Id){
 
 #' @export
 downloadById <- function(id,location=NULL,toPath){
+  options(timeout = max(600, getOption("timeout")))
   if(!is.null(toPath) && !dir.exists(dirname(toPath))){
-    dir.create(dirname(toPath))
+    dir.create(dirname(toPath),recursive = T)
   }
   path <-  getDownloadPath(id,location)
   message(toPath," not found, start downloading from :",path)
@@ -213,31 +214,6 @@ readCancerFile <-function(cancer,study,dataOrigin,location=NULL,isLocalPath=glob
 }
 
 
-#' @export
-readFileByName <-function(name,isLocalPath=global_env$isLocalPath){
-  res <- http_get(paste0("/organize_file/findByEnName/",name))
-  if(isLocalPath){
-    path <- res$localPath
-    if(!file.exists(path)){
-      return(message(path,"不存在！"))
-    }
-  }else{
-    path <- paste0(global_env$remote,"/", res$networkPath)
-    if(substr(path, 1, 4)!="http" && !file.exists(path)){
-      return(message(path," is not found in your computer!"))
-    }
-  }
-
-  message("File loading path: ",path)
-  if(res$fileType=="csv"){
-    df <- read.csv(path,row.names = 1)
-  }else if(res$fileType=="tsv"){
-    df <- readr::read_tsv(path)
-  }else{
-    return(message("文件类型不支持！"))
-  }
-  return(df)
-}
 
 
 #' @export

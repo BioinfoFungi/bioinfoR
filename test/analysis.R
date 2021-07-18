@@ -1,8 +1,16 @@
 
 #initParam(baseUrl = "http://8.140.164.151:8080",remote = "/home/wangyang/workspace/www/data/TCGADOWNLOAD",isLocalPath = F)
-#initParam(baseUrl = "http://8.140.164.151:8080",isLocalPath = F,remote = "/home/wy/Documents/bioinfoR")
-initParam(baseUrl = "http://localhost:8080",isLocalPath = F,remote = "/home/wy/Documents/bioinfoR")
+initParam(host  = "http://8.140.164.151:8080",isLocalPath = T,pathPrefix  = "myData")
+#initParam(baseUrl = "http://localhost:8080",isLocalPath = F,remote = "/home/wy/Documents/bioinfoR")
+showParam()
 
+#############################################################
+## 生存分析
+#############################################################
+readCancerFile("CHOL","FPKM","TCGA",isLocalPath = T)
+
+fit <- tcgaSurvival("CHOL","TP53")
+tcgaGGsurvplot(fit)
 
 expr <- tcgaMiRNA("UCEC")
 expr@expr

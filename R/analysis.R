@@ -7,9 +7,9 @@
 tcgaSurvival <- function(cancer,gene,dataType = "FPKM",isLocalPath=global_env$isLocalPath){
   #     expr <- readFile(cancer = "CHOL",study = "FPKM",dataOrigin = "TCGA")
   #     gene <- "ARID1A"
-  gff_v22 <- readFileByName("gff_v22",isLocalPath = isLocalPath)
+  gff_v22 <- readOrganizeFile("gff_v22",isLocalPath = isLocalPath)
 
-  expr <- readFile(cancer,dataType,"TCGA",isLocalPath = isLocalPath)%>%
+  expr <- readCancerFile(cancer,dataType,"TCGA",isLocalPath = isLocalPath)%>%
     tibble::column_to_rownames("X1")%>%
     {.[gff_v22$gene_id,]}%>%
     dplyr::mutate(symbol=gff_v22$gene_name)%>%
@@ -17,7 +17,7 @@ tcgaSurvival <- function(cancer,gene,dataType = "FPKM",isLocalPath=global_env$is
     tibble::remove_rownames()%>%
     tibble::column_to_rownames("symbol")
 
-  clinical <- readFile(cancer,"clinical","TCGA",isLocalPath = isLocalPath)%>%
+  clinical <- readCancerFile(cancer,"clinical","TCGA",isLocalPath = isLocalPath)%>%
     dplyr::mutate(sample_id=submitter_id,
            days_to_last_followup = ifelse(vital_status=='Alive',days_to_last_follow_up,days_to_death),
            Overall_Survival_Status = factor(vital_status,levels = c("Alive","Dead"),labels = c(0,1)),
@@ -65,7 +65,7 @@ tcgaGGsurvplot <- function(fit,title=NULL,legend.labs=c("high expression", "low 
 #'
 #' @export
 tcgaMiRNA <- function(cancer,isLocalPath=global_env$isLocalPath){
-  expr <- readFile(cancer,"miRNA","TCGA",isLocalPath = isLocalPath)%>%
+  expr <- readCancerFile(cancer,"miRNA","TCGA",isLocalPath = isLocalPath)%>%
     select("miRNA_ID",starts_with("read_count"))%>%
     rename_at(vars(contains("read_count")), ~ substr(.,12,length(.)))%>%
     column_to_rownames("miRNA_ID")
@@ -94,8 +94,8 @@ tcgaMiRNA <- function(cancer,isLocalPath=global_env$isLocalPath){
 #'
 #' @export
 tcgaExpr <-function(cancer,dataType = "FPKM",isLocalPath=global_env$isLocalPath){
-  gff_v22 <- readFileByName("gff_v22",isLocalPath = isLocalPath)
-  expr <- readFile(cancer,dataType,"TCGA")%>%
+  gff_v22 <- readOrganizeFile("gff_v22",isLocalPath = isLocalPath)
+  expr <- readCancerFile(cancer,dataType,"TCGA")%>%
     tibble::column_to_rownames("X1")%>%
     {.[gff_v22$gene_id,]}%>%
     dplyr::mutate(symbol=gff_v22$gene_name,gene_type=gff_v22$gene_type)%>%
