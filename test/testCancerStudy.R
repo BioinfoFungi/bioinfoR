@@ -195,3 +195,15 @@ initParam(host = "http://127.0.0.1:8080")
 readOrganizeFile("aaaaa",isLocalPath = T,location = "ALIOSS")
 df <- readGzip("http://localhost:8080/api/base_file/downloadById/13?authorize=wangyang1749748955")
 dim(df)
+
+
+
+
+
+###################################################################
+df <- readCancerFile("OV","Counts","TCGA",isLocalPath = F)
+uploadCancerStudy( cancer = "OV",
+                   study = "miRNA_ISO",
+                   dataOrigin = "GEO",
+                   enName = "GSE83693",
+                   path="/home/wangyang/workspace/OvarianCancer/data/GSE83693_sample.tsv")

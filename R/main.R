@@ -142,8 +142,8 @@ downloadFileById <- function(id,toPath=NULL){
 #' getCancerStudyFile("BRAC","transcript","TCGA")
 #'
 #' @export
-getCancerStudyFile <- function(cancer,study,dataOrigin){
-  query <- list( cancer = cancer, study=study,dataOrigin=dataOrigin)
+getCancerStudyFile <- function(cancer,study,dataOrigin,enName){
+  query <- list( cancer = cancer, study=study,dataOrigin=dataOrigin,enName=enName)
   res <- http_get("/cancer_study/findOne",query = query)
   return(res)
 }
@@ -218,8 +218,11 @@ readFileById <-function(id,location=NULL,isLocalPath=global_env$isLocalPath){
 }
 
 #' @export
-readCancerFile <-function(cancer,study,dataOrigin,location=NULL,isLocalPath=global_env$isLocalPath){
-  res <- getCancerStudyFile(cancer,study,dataOrigin)
+readCancerFile <-function(cancer,study,dataOrigin,enName=NULL,location=NULL,isLocalPath=global_env$isLocalPath){
+  if(is.null(enName)){
+    enName <-paste0("cancer_",cancer,"_",study,"_",dataOrigin)
+  }
+  res <- getCancerStudyFile(cancer,study,dataOrigin,enName = enName)
   readFileByData(data = res,location = location,isLocalPath = isLocalPath)
 }
 
@@ -280,9 +283,13 @@ addAttachment <- function(projectId,absolutePath,enName=NULL,relativePath=NULL,f
   return(res)
 }
 #' @export
-addCancerStudy <- function(cancer,study,dataOrigin,absolutePath,relativePath=NULL,fileType=NULL,fileName=NULL){
+addCancerStudy <- function(cancer,study,dataOrigin,absolutePath,enName=NULL,relativePath=NULL,fileType=NULL,fileName=NULL){
+  if(is.null(enName)){
+    enName<-paste0("cancer_",cancer,"_",study,"_",dataOrigin)
+  }
   body <- list(cancer = cancer,
                study= study,
+               enName=enName,
                dataOrigin=dataOrigin,
                absolutePath=absolutePath,
                relativePath=relativePath,
@@ -344,9 +351,13 @@ uploadAttachment <- function(projectId,path,enName=NULL,fileName=NULL,fileType=N
 
 #' @importFrom httr upload_file
 #' @export
-uploadCancerStudy<- function(cancer,study,dataOrigin,path,fileType=NULL,fileName=NULL){
+uploadCancerStudy<- function(cancer,study,dataOrigin,path,enName=NULL,fileType=NULL,fileName=NULL){
+  if(is.null(enName)){
+    enName <-paste0("cancer_",cancer,"_",study,"_",dataOrigin)
+  }
   body <- list(cancer = cancer,
                study= study,
+               enName=enName,
                dataOrigin=dataOrigin,
                file=upload_file(path),
                fileType=fileType,
