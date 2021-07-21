@@ -6,7 +6,7 @@ tcgaExpr <-function(cancer,dataType = "FPKM",location=NULL,isLocalPath=global_en
   expr <- readCancerFile(cancer,dataType,"TCGA",location = location)%>%
     tibble::column_to_rownames("X1")%>%
     {.[gff_v22$gene_id,]}%>%
-    dplyr::mutate(symbol=gff_v22$gene_name,gene_type=gff_v22$gene_type)%>%
+    dplyr::mutate(symbol=gff_v22$gene_name)%>% #,gene_type=gff_v22$gene_type
     {.[!duplicated(.$symbol),]}%>%
     remove_rownames()%>%
     tibble::column_to_rownames("symbol")
@@ -72,53 +72,90 @@ tcgaMiRNA <- function(cancer,isLocalPath=global_env$isLocalPath){
 }
 
 
+#' @export
+clinicalArranage <- function(cancer,location=NULL,isLocalPath=global_env$isLocalPath,time=365){
+  tcga_clinical <- readCancerFile(cancer = cancer,study = "clinical",dataOrigin = "TCGA",location = location,isLocalPath = isLocalPath)%>%
+    plyr::rename(c(bcr_patient_barcode="Tumor_Sample_Barcode"))%>%
+    mutate(days_to_last_followup = ifelse(vital_status=='Alive',days_to_last_follow_up,days_to_death),
+           Overall_Survival_Status = ifelse(vital_status=="Alive",0,1),
+           days_to_last_followup = days_to_last_followup/time)%>%
+    dplyr::select(Tumor_Sample_Barcode,days_to_last_followup,Overall_Survival_Status)
+  #tcga_clinical$Overall_Survival_Status <-  as.numeric(tcga_clinical$Overall_Survival_Status)
+  return(tcga_clinical)
+}
+
+checkGeneExist <- function(existGene,inputGene){
+  gene_intersect<- intersect(existGene,inputGene)
+  gene_diff <- setdiff(inputGene,gene_intersect)
+  if(length(gene_diff)!=0){
+    message("remove this gene: ",gene_diff)
+  }
+  return(gene_intersect)
+}
 ###############################################################################
 ## Conjoint analysis
 ###############################################################################
 
+#' Survival analysis of gene expression
+#'
+#' @examples
+#' library(survival)
+#' library(survminer)
+#' genes <- c("TP53","ELF3","ARID1A")
+#' survival_df <- tcgaSurvival("CHOL",genes)
+#'
+#' df_result <- NULL
+#' for(gene in  intersect(colnames(survival_df),genes)){
+#'  formula <-as.formula(paste0("Surv(days_to_last_followup,Overall_Survival_Status)~",paste0(gene,collapse = "+")))
+#'   diff <- survdiff(formula,data = survival_df)
+#'   pVal <- 1 -pchisq(diff$chisq,df =1)
+#'   pValue <- signif(pVal,4)
+#'   df_result <- rbind(df_result,data.frame(gene=gene,pValue=pValue))
+#' }
+#'
+#' lapply(genes, function(gene) {
+#'   formula <-as.formula(paste0("Surv(days_to_last_followup,Overall_Survival_Status)~",paste0(gene,collapse = "+")))
+#'   fit <- surv_fit(formula, data = survival_df)
+#'   return(list(fit=fit,expr=survival_df,legend=c("Mutation","Wild"),title=gene))
+#' })%>%
+#'   lapply(function(fit){
+#'     dev.new()
+#'    res <- ggsurvplot(fit$fit, pval=T, risk.table=F,
+#'                      risk.table.height = 0.3,
+#'                      data = fit$expr,
+#'                      xlab="",
+#'                       pval.size=7,
+#'                       font.x = c(18),
+#'                       font.y = c(18),
+#'                       font.legend=c(18),
+#'                       legend.title = fit$legend,
+#'                       legend.labs = fit$legend,
+#'                       title=fit$title)
+#'     print(res)
+#'   })
+#'
 #' @importFrom tibble remove_rownames column_to_rownames rownames_to_column
-#' @importFrom dplyr mutate '%>%' left_join
-#' @importFrom survminer surv_fit ggsurvplot
-#' @importFrom survival  Surv
+#' @importFrom dplyr mutate '%>%' left_join mutate_at inner_join
 #'
 #' @export
-tcgaSurvival <- function(cancer,gene,dataType = "FPKM",location=NULL,isLocalPath=global_env$isLocalPath){
+tcgaSurvival <- function(cancer,genes,dataType = "FPKM",location=NULL,isLocalPath=global_env$isLocalPath,time=365){
   #     expr <- readFile(cancer = "CHOL",study = "FPKM",dataOrigin = "TCGA")
   #     gene <- "ARID1A"
-  gff_v22 <- readOrganizeFile("gff_v22",isLocalPath = isLocalPath)
+  # gff_v22 <- readOrganizeFile("gff_v22",isLocalPath = isLocalPath)
 
-  expr <- readCancerFile(cancer,dataType,"TCGA",isLocalPath = isLocalPath,location = location)%>%
-    tibble::column_to_rownames("X1")%>%
-    {.[gff_v22$gene_id,]}%>%
-    dplyr::mutate(symbol=gff_v22$gene_name)%>%
-    {.[!duplicated(.$symbol),]}%>%
-    tibble::remove_rownames()%>%
-    tibble::column_to_rownames("symbol")
-
-  clinical <- readCancerFile(cancer,"clinical","TCGA",isLocalPath = isLocalPath,location = location)%>%
-    dplyr::mutate(sample_id=submitter_id,
-           days_to_last_followup = ifelse(vital_status=='Alive',days_to_last_follow_up,days_to_death),
-           Overall_Survival_Status = factor(vital_status,levels = c("Alive","Dead"),labels = c(0,1)),
-           days_to_last_followup = days_to_last_followup/365)%>%
-    dplyr::select(sample_id,Overall_Survival_Status,days_to_last_followup)
-
-  t(expr[gene,])%>%
+  tcga_expr <- tcgaExpr(cancer = cancer,location = location,isLocalPath = isLocalPath,dataType = dataType)
+  gene_intersect <- checkGeneExist(rownames(tcga_expr@expr),genes)
+  tcga_clinical <- clinicalArranage(cancer,location = location,isLocalPath = isLocalPath,time=time)
+  apply(tcga_expr@expr[gene_intersect,], 1,function(row){
+    low_hight <- ifelse(row<=median(row),"Low","Hight")
+    return(low_hight)})%>%
     as.data.frame()%>%
-    rownames_to_column("sample_id")%>%
-    mutate(sample_id = stringr::str_sub(sample_id, 1, 12))%>%
-    dplyr::left_join(clinical,by="sample_id")-> expr_gene
+    rownames_to_column("Tumor_Sample_Barcode")%>%
+    mutate(Tumor_Sample_Barcode = stringr::str_sub(Tumor_Sample_Barcode, 1, 12))-> tcga_expr_select
 
-  low_high <- ifelse(expr_gene[,gene]<=median(expr_gene[,gene]),"Low","Hight")
+  plot_data <- inner_join(tcga_expr_select,tcga_clinical,by="Tumor_Sample_Barcode")
 
-  expr_gene$Overall_Survival_Status <-  as.numeric(expr_gene$Overall_Survival_Status)
-
-  #     diff <- survdiff(Surv(days_to_last_followup,Overall_Survival_Status)~low_high,data = expr_gene)
-  #     pVal <- 1 -pchisq(diff$chisq,df =1)
-  #     pValue <- signif(pVal,4)
-  #     cat(pValue)
-
-  fit <- surv_fit(Surv(days_to_last_followup,Overall_Survival_Status) ~ low_high, data = expr_gene)
-  return(list(fit=fit,expr=expr_gene,legend.labs=c("high expression", "low expression"),title=gene))
+  return(plot_data)
 }
 
 
@@ -140,32 +177,62 @@ tcgaMutationWider <- function(cancer,location=NULL,isLocalPath=global_env$isLoca
   return(gene_sample_wider)
 }
 
-
+#' The correlation between mutation and survival
+#'
+#'
+#' @examples
+#' library(survival)
+#' library(survminer)
+#' genes <- c("TP53","ELF3","ARID1A")
+#'
+#' df_result <- NULL
+#' for(gene in  intersect(colnames(survival_df),genes)){
+#'  formula <-as.formula(paste0("Surv(days_to_last_followup,Overall_Survival_Status)~",paste0(gene,collapse = "+")))
+#'   diff <- survdiff(formula,data = survival_df)
+#'   pVal <- 1 -pchisq(diff$chisq,df =1)
+#'   pValue <- signif(pVal,4)
+#'   df_result <- rbind(df_result,data.frame(gene=gene,pValue=pValue))
+#' }
+#'
+#' survival_df <- tcgaMutationSurvival("CHOL",genes)
+#' lapply(genes, function(gene) {
+#'   formula <-as.formula(paste0("Surv(days_to_last_followup,Overall_Survival_Status)~",paste0(gene,collapse = "+")))
+#'   fit <- surv_fit(formula, data = survival_df)
+#'   return(list(fit=fit,expr=survival_df,legend=c("Mutation","Wild"),title=gene))
+#' })%>%
+#'   lapply(function(fit){
+#'     dev.new()
+#'    res <- ggsurvplot(fit$fit, pval=T, risk.table=F,
+#'                      risk.table.height = 0.3,
+#'                      data = fit$expr,
+#'                      xlab="",
+#'                       pval.size=7,
+#'                       font.x = c(18),
+#'                       font.y = c(18),
+#'                       font.legend=c(18),
+#'                       legend.title = fit$legend,
+#'                       legend.labs = fit$legend,
+#'                       title=fit$title)
+#'     print(res)
+#'   })
+#'
+#'
 #' @importFrom tibble remove_rownames column_to_rownames rownames_to_column
 #' @importFrom dplyr mutate '%>%' left_join
-#' @importFrom survminer surv_fit ggsurvplot
-#' @importFrom survival  Surv
 #'
 #' @export
-tcgaMutationSurvival <- function(cancer,gene,location=NULL,isLocalPath=global_env$isLocalPath){
-  tcga_clinical <- readCancerFile(cancer = cancer,study = "clinical",dataOrigin = "TCGA",location = location,isLocalPath = isLocalPath)%>%
-    plyr::rename(c(bcr_patient_barcode="Tumor_Sample_Barcode"))%>%
-    mutate(days_to_last_followup = ifelse(vital_status=='Alive',days_to_last_follow_up,days_to_death),
-           Overall_Survival_Status = factor(vital_status,levels = c("Alive","Dead"),labels = c(0,1)),
-           days_to_last_followup = days_to_last_followup/365)%>%
-    dplyr::select(Tumor_Sample_Barcode,days_to_last_followup,Overall_Survival_Status)
+tcgaMutationSurvival <- function(cancer,genes,location=NULL,isLocalPath=global_env$isLocalPath,time=365){
+  tcga_clinical <- clinicalArranage(cancer,location = location,isLocalPath = isLocalPath,time=time)
   gene_sample_wider <- tcgaMutationWider(cancer = cancer,location = location,isLocalPath=isLocalPath)
-
-  gene_sample_wider[gene,]%>%
+  gene_intersect <- checkGeneExist(rownames(gene_sample_wider),genes)
+  gene_sample_wider[gene_intersect,]%>%
     t()%>%
     as.data.frame()%>%
     rownames_to_column("Tumor_Sample_Barcode")%>%
     right_join(tcga_clinical,by="Tumor_Sample_Barcode")%>%
     na.omit()%>%
-    dplyr::select(Tumor_Sample_Barcode,mutation=2,days_to_last_followup,Overall_Survival_Status)-> mutation_survival
-  mutation_survival$Overall_Survival_Status <-  as.numeric(mutation_survival$Overall_Survival_Status)
-  fit <- surv_fit(Surv(days_to_last_followup,Overall_Survival_Status) ~ mutation, data = mutation_survival)
-  return(list(fit=fit,expr=mutation_survival,legend.labs=c("Mutation","Wild"),title=gene))
+    dplyr::select(Tumor_Sample_Barcode,gene_intersect,days_to_last_followup,Overall_Survival_Status)-> mutation_survival
+  return(mutation_survival)
 }
 
 
@@ -180,30 +247,54 @@ tcgaMutationSurvival <- function(cancer,gene,location=NULL,isLocalPath=global_en
 #' @author YangWang <1749748955@qq.com>
 #' @examples
 #' plot_data <- tcgaMutationExpr(cancer="CHOL",gene="ARID1A")
+#' boxplot(expr~mutation,data =plot_data,col=c("red","blue"),main="ARID1A")
 #'
-#' boxplot(expr~mutation,data =plot_data,col=c("red","blue"))
-#'
-#' ggplot(plot_data,aes(x=mutation,y=expr,color=mutation))+
-#'   stat_boxplot()
+#' plot_data <- tcgaMutationExpr(cancer="CHOL",gene=c("ARID1A","PTEN"))
+#' lapply(plot_data,function(x){
+#'   dev.new()
+#'   boxplot(expr~mutation,data =x$expr,col=c("red","blue"),main=x$gene)
+#' })
 #'
 #' @export
-tcgaMutationExpr <- function(cancer,gene,location=NULL,isLocalPath=global_env$isLocalPath){
+tcgaMutationExpr <- function(cancer,genes,location=NULL,isLocalPath=global_env$isLocalPath){
   gene_sample_wider <- tcgaMutationWider(cancer = cancer,location = location,isLocalPath=isLocalPath)
-  gene_sample_wider[gene,]%>%
+  gene_intersect <- checkGeneExist(rownames(gene_sample_wider),genes)
+  gene_sample_wider[gene_intersect,]%>%
     t()%>%
     as.data.frame()%>%
-    rownames_to_column("Tumor_Sample_Barcode")%>%
-    dplyr::rename("mutation"=2) ->gene_sample_select
+    rownames_to_column("Tumor_Sample_Barcode")->tcga_mutation_select
+
+
   tcga_expr <- tcgaExpr(cancer = cancer,location = location,isLocalPath = isLocalPath)
-  tcga_expr@expr[gene,]%>%
+  gene_intersect <- checkGeneExist(rownames(tcga_expr@expr),genes)
+  tcga_expr@expr[gene_intersect,]%>%
     t()%>%
     as.data.frame()%>%
     rownames_to_column("Tumor_Sample_Barcode")%>%
-    filter(grepl("TCGA",Tumor_Sample_Barcode))%>%
     mutate(Tumor_Sample_Barcode = stringr::str_sub(Tumor_Sample_Barcode, 1, 12))%>%
-    dplyr::rename("expr"=2) -> tcga_expr_select
-  plot_data <- inner_join(tcga_expr_select,gene_sample_select,by="Tumor_Sample_Barcode")
-  plot_data$expr <- as.numeric(plot_data$expr)
+    mutate_at(gene_intersect, as.numeric) -> tcga_expr_select
+
+
+  if(length(gene_intersect)>1){
+    rename_at(tcga_expr_select,gene_intersect, ~ paste0(., "_expr"))-> tcga_expr_select
+    rename_at(tcga_mutation_select,gene_intersect, ~ paste0(., "_mutation")) -> tcga_mutation_select
+  }else{
+    rename_at(tcga_expr_select,gene_intersect, ~ paste0("expr"))-> tcga_expr_select
+    rename_at(tcga_mutation_select,gene_intersect, ~ paste0("mutation")) -> tcga_mutation_select
+  }
+
+  plot_data <- inner_join(tcga_expr_select,tcga_mutation_select,by="Tumor_Sample_Barcode")
+  if(length(gene_intersect)>1){
+    plot_data <- lapply(gene_intersect,function(x){
+      expr <- paste0(x,"_expr")
+      mutation <- paste0(x,"_mutation")
+      mutation_expr <- plot_data[,c(expr,mutation)]
+      colnames(mutation_expr) <- c("expr","mutation")
+      return(list(expr=mutation_expr,gene=x))
+    })
+  }else{
+    plot_data <- subset(plot_data,select=c("expr","mutation"))
+  }
   return(plot_data)
 }
 

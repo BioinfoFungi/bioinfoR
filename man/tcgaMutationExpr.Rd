@@ -6,7 +6,7 @@
 \usage{
 tcgaMutationExpr(
   cancer,
-  gene,
+  genes,
   location = NULL,
   isLocalPath = global_env$isLocalPath
 )
@@ -24,11 +24,13 @@ Correlation between mutation and expression
 }
 \examples{
 plot_data <- tcgaMutationExpr(cancer="CHOL",gene="ARID1A")
+boxplot(expr~mutation,data =plot_data,col=c("red","blue"),main="ARID1A")
 
-boxplot(expr~mutation,data =plot_data,col=c("red","blue"))
-
-ggplot(plot_data,aes(x=mutation,y=expr,color=mutation))+
-  stat_boxplot()
+plot_data <- tcgaMutationExpr(cancer="CHOL",gene=c("ARID1A","PTEN"))
+lapply(plot_data,function(x){
+  dev.new()
+  boxplot(expr~mutation,data =x$expr,col=c("red","blue"),main=x$gene)
+})
 
 }
 \author{
