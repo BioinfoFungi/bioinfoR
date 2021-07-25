@@ -3,10 +3,10 @@
 #' @export
 tcgaExpr <-function(cancer,dataType = "FPKM",location=NULL,isLocalPath=global_env$isLocalPath){
   gff_v22 <- readOrganizeFile("gff_v22",isLocalPath = isLocalPath,location = location)
-  expr <- readCancerFile(cancer,dataType,"TCGA",location = location)%>%
+  expr <- readCancerFile(cancer,dataType,"TCGA",location = location,isLocalPath = isLocalPath)%>%
     tibble::column_to_rownames("X1")%>%
     {.[gff_v22$gene_id,]}%>%
-    dplyr::mutate(symbol=gff_v22$gene_name)%>% #,gene_type=gff_v22$gene_type
+    dplyr::mutate(symbol=gff_v22$gene_name,gene_type=gff_v22$gene_type)%>% #
     {.[!duplicated(.$symbol),]}%>%
     remove_rownames()%>%
     tibble::column_to_rownames("symbol")
@@ -33,21 +33,43 @@ tcgaExpr <-function(cancer,dataType = "FPKM",location=NULL,isLocalPath=global_en
 }
 
 #' @export
-tcgaMRNA <- function(cancer,gene,dataType = "FPKM",isLocalPath=global_env$isLocalPath){
-  expr <- tcgaExpr(cancer,dataType,isLocalPath)%>%
-    filter(gene_type=="protein_coding")%>%
-    dplyr::select(-gene_type)
+tcgaExprNoType <-function(cancer,dataType = "FPKM",location=NULL,isLocalPath=global_env$isLocalPath){
+  expr_obj <- tcgaExpr(cancer = cancer,dataType = dataType,location = location ,isLocalPath = isLocalPath)
+  expr_obj@expr%>%
+    dplyr::select(-gene_type) -> expr
   return(expr)
 }
 
+#' @export
+tcgaMRNA <- function(cancer,dataType = "FPKM",location=NULL,isLocalPath=global_env$isLocalPath){
+  expr_obj <- tcgaExpr(cancer = cancer,dataType = dataType,location = location,isLocalPath = isLocalPath)
+  expr_obj@expr%>%
+    filter(gene_type=="protein_coding")%>%
+    dplyr::select(-gene_type) -> expr
+  obj <- new("Expr", expr=expr,metadata=expr_obj@metadata)
+  return(obj)
+}
+
+
+#' @export
+tcgaLncRNA <- function(cancer,dataType = "FPKM",location=NULL,isLocalPath=global_env$isLocalPath){
+  expr_obj <- tcgaExpr(cancer = cancer,dataType = dataType,location = location,isLocalPath = isLocalPath)
+  lncRNA_types <- "3prime_overlapping_ncrna, antisense, lincRNA, macro_lncRNA, non_coding, processed_transcript, sense_intronic, sense_overlapping"
+  lncRNA_types <- unlist(str_split(lncRNA_types, pattern = ", "))
+  expr_obj@expr%>%
+    filter(gene_type %in% lncRNA_types)%>%
+    dplyr::select(-gene_type) -> expr
+  obj <- new("Expr", expr=expr,metadata=expr_obj@metadata)
+  return(obj)
+}
 
 
 #' @importFrom dplyr rename_at vars contains select
 #' @importFrom tibble tibble
 #'
 #' @export
-tcgaMiRNA <- function(cancer,isLocalPath=global_env$isLocalPath){
-  expr <- readCancerFile(cancer,"miRNA","TCGA",isLocalPath = isLocalPath)%>%
+tcgaMiRNA <- function(cancer,location=location,isLocalPath=global_env$isLocalPath){
+  expr <- readCancerFile(cancer,"miRNA","TCGA",location = location,isLocalPath = isLocalPath)%>%
     select("miRNA_ID",starts_with("read_count"))%>%
     rename_at(vars(contains("read_count")), ~ substr(.,12,length(.)))%>%
     column_to_rownames("miRNA_ID")
@@ -143,10 +165,52 @@ tcgaSurvival <- function(cancer,genes,dataType = "FPKM",location=NULL,isLocalPat
   #     gene <- "ARID1A"
   # gff_v22 <- readOrganizeFile("gff_v22",isLocalPath = isLocalPath)
 
-  tcga_expr <- tcgaExpr(cancer = cancer,location = location,isLocalPath = isLocalPath,dataType = dataType)
-  gene_intersect <- checkGeneExist(rownames(tcga_expr@expr),genes)
+  tcga_expr <- tcgaExprNoType(cancer = cancer,dataType = dataType,location = location,isLocalPath = isLocalPath)
+  gene_intersect <- checkGeneExist(rownames(tcga_expr),genes)
   tcga_clinical <- clinicalArranage(cancer,location = location,isLocalPath = isLocalPath,time=time)
-  apply(tcga_expr@expr[gene_intersect,], 1,function(row){
+  apply(tcga_expr[gene_intersect,], 1,function(row){
+    low_hight <- ifelse(row<=median(row),"Low","Hight")
+    return(low_hight)})%>%
+    as.data.frame()%>%
+    rownames_to_column("Tumor_Sample_Barcode")%>%
+    mutate(Tumor_Sample_Barcode = stringr::str_sub(Tumor_Sample_Barcode, 1, 12))-> tcga_expr_select
+
+  plot_data <- inner_join(tcga_expr_select,tcga_clinical,by="Tumor_Sample_Barcode")
+
+  return(plot_data)
+}
+
+#' @export
+tcgaMiRNASurvival <- function(cancer,genes,location=NULL,isLocalPath=global_env$isLocalPath,time=365){
+  #     expr <- readFile(cancer = "CHOL",study = "FPKM",dataOrigin = "TCGA")
+  #     gene <- "ARID1A"
+  # gff_v22 <- readOrganizeFile("gff_v22",isLocalPath = isLocalPath)
+
+  tcga_obj <- tcgaMiRNA(cancer = cancer,location = location,isLocalPath = isLocalPath)
+  tcga_expr <- tcga_obj@expr
+  gene_intersect <- checkGeneExist(rownames(tcga_expr),genes)
+  tcga_clinical <- clinicalArranage(cancer,location = location,isLocalPath = isLocalPath,time=time)
+  apply(tcga_expr[gene_intersect,], 1,function(row){
+    low_hight <- ifelse(row<=median(row),"Low","Hight")
+    return(low_hight)})%>%
+    as.data.frame()%>%
+    rownames_to_column("Tumor_Sample_Barcode")%>%
+    mutate(Tumor_Sample_Barcode = stringr::str_sub(Tumor_Sample_Barcode, 1, 12))-> tcga_expr_select
+
+  plot_data <- inner_join(tcga_expr_select,tcga_clinical,by="Tumor_Sample_Barcode")
+
+  return(plot_data)
+}
+
+tcgaSurvival <- function(cancer,genes,dataType = "FPKM",location=NULL,isLocalPath=global_env$isLocalPath,time=365){
+  #     expr <- readFile(cancer = "CHOL",study = "FPKM",dataOrigin = "TCGA")
+  #     gene <- "ARID1A"
+  # gff_v22 <- readOrganizeFile("gff_v22",isLocalPath = isLocalPath)
+
+  tcga_expr <- tcgaExprNoType(cancer = cancer,location = location,isLocalPath = isLocalPath,dataType = dataType)
+  gene_intersect <- checkGeneExist(rownames(tcga_expr),genes)
+  tcga_clinical <- clinicalArranage(cancer,location = location,isLocalPath = isLocalPath,time=time)
+  apply(tcga_expr[gene_intersect,], 1,function(row){
     low_hight <- ifelse(row<=median(row),"Low","Hight")
     return(low_hight)})%>%
     as.data.frame()%>%

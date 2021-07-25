@@ -4,7 +4,13 @@
 \alias{getCancerStudyFile}
 \title{find one cancer study}
 \usage{
-getCancerStudyFile(cancer, study, dataOrigin, enName)
+getCancerStudyFile(
+  cancer,
+  study,
+  dataOrigin,
+  analysisSoftware = NULL,
+  experimentalStrategy = NULL
+)
 }
 \arguments{
 \item{cancer}{A character(1) canser type}

@@ -21,7 +21,7 @@ library(survminer)
 genes <- c("TP53","ELF3","ARID1A")
 
 df_result <- NULL
-for(gene in  genes){
+for(gene in  intersect(colnames(survival_df),genes)){
  formula <-as.formula(paste0("Surv(days_to_last_followup,Overall_Survival_Status)~",paste0(gene,collapse = "+")))
   diff <- survdiff(formula,data = survival_df)
   pVal <- 1 -pchisq(diff$chisq,df =1)

@@ -1,4 +1,7 @@
-initParam(host="http://8.140.164.151:8080",authorization = "wangyang1749748955")
+#initParam(host="http://8.140.164.151:8080",authorization = "wangyang1749748955")
 
-genes <- c("TP53","ARID1A")
-survival_df <- tcgaSurvival("CHOL",genes,time=30)
+#genes <- c("TP53","ARID1A")
+#survival_df <- tcgaSurvival("CHOL",genes,time=30)
+df <- readCancerFile(cancer = "BRAC",
+                     study = "count",
+                     dataOrigin = "TCGA",isLocalPath = T,location = "LOCAL")

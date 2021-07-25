@@ -87,8 +87,8 @@ globalConfig <- function(){
   return(res)
 }
 
-getDownloadPath <- function(id,location=NULL){
-  path <- paste0(global_env$baseUrl,"/base_file/downloadById/",id,
+getDownloadPath <- function(id,type,location=NULL){
+  path <- paste0(global_env$baseUrl,"/",type,"/downloadById/",id,
                  "?authorize=",global_env$authorize)
   if(!is.null(location)){
     path<- paste0(path,"&location=",location)
@@ -108,12 +108,12 @@ getFileById <-function(Id){
 
 
 #' @export
-downloadById <- function(id,location=NULL,toPath){
+downloadById <- function(id,type,location=NULL,toPath){
   options(timeout = max(600, getOption("timeout")))
   if(!is.null(toPath) && !dir.exists(dirname(toPath))){
     dir.create(dirname(toPath),recursive = T)
   }
-  path <-  getDownloadPath(id,location)
+  path <-  getDownloadPath(id,type,location)
   message(toPath," not found, start downloading from :",path)
   download.file(path,destfile=toPath)
   message("Save the file to: ",toPath)
@@ -130,27 +130,9 @@ downloadFileById <- function(id,toPath=NULL){
 
 
 
-#' find one cancer study
-#'
-#' API: /cancer_study/findOne
-#' @param cancer A character(1) canser type
-#' @param study A character(1) study type
-#' @param dataOrigin A character(1) database source
-#'
-#' @examples
-#'
-#' getCancerStudyFile("BRAC","transcript","TCGA")
-#'
-#' @export
-getCancerStudyFile <- function(cancer,study,dataOrigin,enName){
-  query <- list( cancer = cancer, study=study,dataOrigin=dataOrigin,enName=enName)
-  res <- http_get("/cancer_study/findOne",query = query)
-  return(res)
-}
 
 
-
-readFileByData <-function(data,location=NULL,isLocalPath=global_env$isLocalPath){
+readFileByData <-function(data,type,location=NULL,isLocalPath=global_env$isLocalPath){
   path<- NULL
   if(isLocalPath){
     # 如果服务器在本地
@@ -165,11 +147,11 @@ readFileByData <-function(data,location=NULL,isLocalPath=global_env$isLocalPath)
       message("serve: ",data$md5)
       if(!file.exists(path)| tools::md5sum(path)!=data$md5){
 
-        downloadById(id =  data$id,location=location,toPath = path)
+        downloadById(id =  data$id,type = type,location=location,toPath = path)
       }
     }
   }else{
-    path <-  getDownloadPath(data$id,location)
+    path <-  getDownloadPath(data$id,type,location)
     if(data$fileType=="tsv.gz"){
       df <- readGzip(path)
       message("Load network file from: ",path)
@@ -187,26 +169,12 @@ readFileByData <-function(data,location=NULL,isLocalPath=global_env$isLocalPath)
   return(df)
 }
 
-#' organize_file cancer_study attachment base_file
-#'
-#' @export
-getFileByEnName <-function(enName,type){
-  if(is.null(type)){
-    type<- "base_file"
-  }
-  res <- http_get(paste0("/",type,"/findOne/",enName))
-  return(res)
-}
 
-#' @export
-readFileByEnName <- function(enName,type=NULL,location=NULL,isLocalPath=global_env$isLocalPath){
-  res <- getFileByEnName(enName,type)
-  readFileByData(data = res,location = location,isLocalPath = isLocalPath)
-}
 
 #' @export
 readOrganizeFile <- function(enName,location=NULL,isLocalPath=global_env$isLocalPath){
-  readFileByEnName(enName = enName,type = "organize_file",location =location,isLocalPath = isLocalPath)
+  res <- http_get(paste0("/organize_file/findName/",enName))
+  readFileByData(data = res,type = "organize_file",location = location,isLocalPath = isLocalPath)
 }
 
 
@@ -214,16 +182,60 @@ readOrganizeFile <- function(enName,location=NULL,isLocalPath=global_env$isLocal
 #' @export
 readFileById <-function(id,location=NULL,isLocalPath=global_env$isLocalPath){
   res <- getFileById(id)
-  readFileByData(data = res,location =location ,isLocalPath = isLocalPath)
+  readFileByData(data = res,type = "",location =location ,isLocalPath = isLocalPath)
+}
+
+
+
+#' find one cancer study
+#'
+#' API: /cancer_study/findOne
+#' @param cancer A character(1) canser type
+#' @param study A character(1) study type
+#' @param dataOrigin A character(1) database source
+#'
+#' @examples
+#'
+#' getCancerStudyFile("BRAC","transcript","TCGA")
+#'
+#' @export
+getCancerStudyFile <- function(cancer,study,dataOrigin,analysisSoftware=NULL,experimentalStrategy=NULL){
+  query <- list( cancer = cancer,
+                 study= study,
+                 dataOrigin=dataOrigin,
+                 analysisSoftware=analysisSoftware,
+                 experimentalStrategy=experimentalStrategy)
+  res <- http_get("/cancer_study/findVoByCategory",query = query)
+  return(res)
 }
 
 #' @export
-readCancerFile <-function(cancer,study,dataOrigin,enName=NULL,location=NULL,isLocalPath=global_env$isLocalPath){
-  if(is.null(enName)){
-    enName <-paste0("cancer_",cancer,"_",study,"_",dataOrigin)
+getCancerStudyByUUID <- function(uuid){
+  res <- http_get(paste0("/cancer_study/findOne/",uuid))
+  return(res)
+}
+#' @export
+getCancerStudyById <- function(id){
+  res <- http_get(paste0("/cancer_study/findById/",id))
+  return(res)
+}
+
+
+#' @export
+readCancerFile <-function(cancer,study,dataOrigin,analysisSoftware=NULL,experimentalStrategy=NULL,location=NULL,isLocalPath=global_env$isLocalPath){
+  res <- getCancerStudyFile(cancer,study,dataOrigin,analysisSoftware = analysisSoftware,experimentalStrategy=experimentalStrategy)
+  if(length(res)==1){
+    readFileByData(data = res[[1]],type = "cancer_study",location = location,isLocalPath = isLocalPath)
+  }else if(length(res)==0){
+    message("没有找到Cancer数据!")
+  }else{
+    message("文件不唯一!")
+    sapply(res, function(x){
+      return(c(analysisSoftware=x$analysisSoftware$enName,
+               experimentalStrategy=x$experimentalStrategy$enName,
+               uuid=x$uuid,id=x$id))
+    })
   }
-  res <- getCancerStudyFile(cancer,study,dataOrigin,enName = enName)
-  readFileByData(data = res,location = location,isLocalPath = isLocalPath)
 }
 
 
@@ -283,18 +295,15 @@ addAttachment <- function(projectId,absolutePath,enName=NULL,relativePath=NULL,f
   return(res)
 }
 #' @export
-addCancerStudy <- function(cancer,study,dataOrigin,absolutePath,enName=NULL,relativePath=NULL,fileType=NULL,fileName=NULL){
-  if(is.null(enName)){
-    enName<-paste0("cancer_",cancer,"_",study,"_",dataOrigin)
-  }
+addCancerStudy <- function(cancer,study,dataOrigin,experimentalStrategy,analysisSoftware,absolutePath,relativePath=NULL){
+
   body <- list(cancer = cancer,
                study= study,
-               enName=enName,
                dataOrigin=dataOrigin,
+               analysisSoftware=analysisSoftware,
+               experimentalStrategy=experimentalStrategy,
                absolutePath=absolutePath,
-               relativePath=relativePath,
-               fileType=fileType,
-               fileName=fileName)
+               relativePath=relativePath)
   res <- http_post("/cancer_study",body = body)
   return(res)
 }
@@ -332,6 +341,21 @@ addDataOrigin <- function(name,enName){
   body <- list(name=name,
                enName=enName)
   res <- http_post("/data_origin",body = body)
+  return(res)
+}
+
+#' @export
+addAnalysisSoftware <- function(name,enName){
+  body <- list(name=name,
+               enName=enName)
+  res <- http_post("/AnalysisSoftware",body = body)
+  return(res)
+}
+#' @export
+addExperimentalStrategy<- function(name,enName){
+  body <- list(name=name,
+               enName=enName)
+  res <- http_post("/ExperimentalStrategy",body = body)
   return(res)
 }
 #################################################################

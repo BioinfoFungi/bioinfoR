@@ -9,7 +9,7 @@ showParam()
 #############################################################
 readCancerFile("CHOL","FPKM","TCGA",isLocalPath = T)
 
-fit <- tcgaSurvival("CHOL","TP53")
+fit <- tcgaSurvival("ACC","TP53")
 tcgaGGsurvplot(fit)
 
 expr <- tcgaMiRNA("UCEC")

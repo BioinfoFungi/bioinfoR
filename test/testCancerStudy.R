@@ -8,11 +8,16 @@ addCancer(name = "结直肠癌",enName = "COAD")
 addCancer(name = "乳腺癌",enName = "BRAC")
 addStudy(name = "count",enName = "count")
 addDataOrigin(name = "TCGA",enName = "TCGA")
+addAnalysisSoftware(name = "Deseq2",enName = "Deseq2")
+addExperimentalStrategy(name = "WGS",enName = "WGS")
+addExperimentalStrategy(name = "RNA-Seq",enName = "RNA-Seq")
 addCancerStudy(cancer = "ESCA",
                study = "count",
                dataOrigin = "TCGA",
+               analysisSoftware="Deseq2",
+               experimentalStrategy="WGS",
                relativePath = "data/TCGA_ESCA_clinical.tsv",
-               absolutePath =  "/home/wy/Documents/bioinfoR/TCGA_ESCA_clinical.tsv")
+               absolutePath =  "/home/wy/Downloads/TCGA_ESCA_clinical.tsv")
 addCancerStudy(cancer = "BRAC",
                study = "count",
                dataOrigin = "TCGA",
@@ -21,7 +26,7 @@ addCancerStudy(cancer = "BRAC",
 
 ## 添加organizeFile
 addOrganizeFile(enName = "132456",
-                absolutePath = "/home/wy/Downloads/TCGA_ACC_Counts.tsv",
+                absolutePath = "/home/wy/Downloads/TCGA_ESCA_clinical.tsv",
                 relativePath = "Downloads/TCGA_ACC_Counts.tsv")
 addOrganizeFile(enName = "init_lncRNA",
                 absolutePath = "/home/wy/Downloads/init_lncRNA.tsv.gz",
@@ -81,11 +86,21 @@ addAttachment(projectId = 55,absolutePath = "/home/wy/Downloads/TCGA_ACC_Counts.
   }
 })()
 initParam(host = "http://127.0.0.1:8080")
-df <- readCancerFile(cancer = "BRAC",
+readCancerFile(cancer = "ESCA",
                study = "count",
-               dataOrigin = "TCGA",isLocalPath = T,location = "LOCAL")
+               dataOrigin = "TCGA",experimentalStrategy="WGS",isLocalPath = T,location = "LOCAL")
 dim(df)
-
+gff_v22 <- readOrganizeFile("132456")
+res <- getCancerStudyFile(cancer = "ESCA",
+                   study = "count",
+                   dataOrigin = "TCGA")
+sapply(res, function(x){
+return(c(analysisSoftware=x$analysisSoftware$enName,
+         experimentalStrategy=x$experimentalStrategy$enName,
+         uuid=x$uuid,id=x$id))
+})
+getCancerStudyByUUID("285144cb-397f-43a2-94e9-eaa51eeec686")
+getCancerStudyById(5)
 readFileById(id=1)
 readFileByEnName(enName="TCGA_ACC_Counts",type = "attachment")
 
