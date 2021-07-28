@@ -11,8 +11,10 @@ tcgaExpr <-function(cancer,dataType = "FPKM",location=NULL,isLocalPath=global_en
     remove_rownames()%>%
     tibble::column_to_rownames("symbol")
 
+  TCGA_id_full <-  colnames(expr)
+  TCGA_id_full <- TCGA_id_full[which(TCGA_id_full!="gene_type")]
   tibble::tibble(
-    TCGA_id_full=colnames(expr),
+    TCGA_id_full=TCGA_id_full,
     TCGA_id = stringr::str_sub(TCGA_id_full, 1, 16),
     patient_id = stringr::str_sub(TCGA_id, 1, 12),
     tissue_type_id = stringr::str_sub(TCGA_id, 14, 15),
@@ -95,7 +97,7 @@ tcgaMiRNA <- function(cancer,location=location,isLocalPath=global_env$isLocalPat
 
 
 #' @export
-clinicalArranage <- function(cancer,location=NULL,isLocalPath=global_env$isLocalPath,time=365){
+tcgaClinical<- function(cancer,location=NULL,isLocalPath=global_env$isLocalPath,time=365){
   tcga_clinical <- readCancerFile(cancer = cancer,study = "clinical",dataOrigin = "TCGA",location = location,isLocalPath = isLocalPath)%>%
     plyr::rename(c(bcr_patient_barcode="Tumor_Sample_Barcode"))%>%
     mutate(days_to_last_followup = ifelse(vital_status=='Alive',days_to_last_follow_up,days_to_death),
@@ -167,13 +169,14 @@ tcgaSurvival <- function(cancer,genes,dataType = "FPKM",location=NULL,isLocalPat
 
   tcga_expr <- tcgaExprNoType(cancer = cancer,dataType = dataType,location = location,isLocalPath = isLocalPath)
   gene_intersect <- checkGeneExist(rownames(tcga_expr),genes)
-  tcga_clinical <- clinicalArranage(cancer,location = location,isLocalPath = isLocalPath,time=time)
+  tcga_clinical <- tcgaClinical(cancer,location = location,isLocalPath = isLocalPath,time=time)
+
   apply(tcga_expr[gene_intersect,], 1,function(row){
     low_hight <- ifelse(row<=median(row),"Low","Hight")
     return(low_hight)})%>%
     as.data.frame()%>%
     rownames_to_column("Tumor_Sample_Barcode")%>%
-    mutate(Tumor_Sample_Barcode = stringr::str_sub(Tumor_Sample_Barcode, 1, 12))-> tcga_expr_select
+    mutate(Tumor_Sample_Barcode = stringr::str_sub(Tumor_Sample_Barcode, 1, 12)) -> tcga_expr_select
 
   plot_data <- inner_join(tcga_expr_select,tcga_clinical,by="Tumor_Sample_Barcode")
 
@@ -189,7 +192,7 @@ tcgaMiRNASurvival <- function(cancer,genes,location=NULL,isLocalPath=global_env$
   tcga_obj <- tcgaMiRNA(cancer = cancer,location = location,isLocalPath = isLocalPath)
   tcga_expr <- tcga_obj@expr
   gene_intersect <- checkGeneExist(rownames(tcga_expr),genes)
-  tcga_clinical <- clinicalArranage(cancer,location = location,isLocalPath = isLocalPath,time=time)
+  tcga_clinical <- tcgaClinical(cancer,location = location,isLocalPath = isLocalPath,time=time)
   apply(tcga_expr[gene_intersect,], 1,function(row){
     low_hight <- ifelse(row<=median(row),"Low","Hight")
     return(low_hight)})%>%
@@ -209,7 +212,7 @@ tcgaSurvival <- function(cancer,genes,dataType = "FPKM",location=NULL,isLocalPat
 
   tcga_expr <- tcgaExprNoType(cancer = cancer,location = location,isLocalPath = isLocalPath,dataType = dataType)
   gene_intersect <- checkGeneExist(rownames(tcga_expr),genes)
-  tcga_clinical <- clinicalArranage(cancer,location = location,isLocalPath = isLocalPath,time=time)
+  tcga_clinical <- tcgaClinical(cancer,location = location,isLocalPath = isLocalPath,time=time)
   apply(tcga_expr[gene_intersect,], 1,function(row){
     low_hight <- ifelse(row<=median(row),"Low","Hight")
     return(low_hight)})%>%
@@ -286,7 +289,7 @@ tcgaMutationWider <- function(cancer,location=NULL,isLocalPath=global_env$isLoca
 #'
 #' @export
 tcgaMutationSurvival <- function(cancer,genes,location=NULL,isLocalPath=global_env$isLocalPath,time=365){
-  tcga_clinical <- clinicalArranage(cancer,location = location,isLocalPath = isLocalPath,time=time)
+  tcga_clinical <- tcgaClinical(cancer,location = location,isLocalPath = isLocalPath,time=time)
   gene_sample_wider <- tcgaMutationWider(cancer = cancer,location = location,isLocalPath=isLocalPath)
   gene_intersect <- checkGeneExist(rownames(gene_sample_wider),genes)
   gene_sample_wider[gene_intersect,]%>%

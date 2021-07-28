@@ -5,9 +5,12 @@
 \title{find one cancer study}
 \usage{
 getCancerStudyFile(
-  cancer,
-  study,
-  dataOrigin,
+  cancer = NULL,
+  study = NULL,
+  dataOrigin = NULL,
+  uuid = NULL,
+  keyword = NULL,
+  fileName = NULL,
   analysisSoftware = NULL,
   experimentalStrategy = NULL
 )

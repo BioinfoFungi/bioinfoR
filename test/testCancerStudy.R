@@ -12,11 +12,15 @@ addAnalysisSoftware(name = "Deseq2",enName = "Deseq2")
 addExperimentalStrategy(name = "WGS",enName = "WGS")
 addExperimentalStrategy(name = "RNA-Seq",enName = "RNA-Seq")
 addCancerStudy(cancer = "ESCA",
-               study = "count",
+               study = "Counts",
                dataOrigin = "TCGA",
                analysisSoftware="Deseq2",
                experimentalStrategy="WGS",
                relativePath = "data/TCGA_ESCA_clinical.tsv",
+               absolutePath =  "/home/wy/Downloads/TCGA_ESCA_clinical.tsv")
+addCancerStudy(cancer = "ESCA",
+               study = "Counts",
+               dataOrigin = "TCGA",
                absolutePath =  "/home/wy/Downloads/TCGA_ESCA_clinical.tsv")
 addCancerStudy(cancer = "BRAC",
                study = "count",
@@ -28,6 +32,7 @@ addCancerStudy(cancer = "BRAC",
 addOrganizeFile(enName = "132456",
                 absolutePath = "/home/wy/Downloads/TCGA_ESCA_clinical.tsv",
                 relativePath = "Downloads/TCGA_ACC_Counts.tsv")
+
 addOrganizeFile(enName = "init_lncRNA",
                 absolutePath = "/home/wy/Downloads/init_lncRNA.tsv.gz",
                 relativePath = "Downloads/init_lncRNA.tsv.gz")
@@ -90,15 +95,41 @@ readCancerFile(cancer = "ESCA",
                study = "count",
                dataOrigin = "TCGA",experimentalStrategy="WGS",isLocalPath = T,location = "LOCAL")
 dim(df)
+
+
 gff_v22 <- readOrganizeFile("132456")
 res <- getCancerStudyFile(cancer = "ESCA",
                    study = "count",
                    dataOrigin = "TCGA")
-sapply(res, function(x){
-return(c(analysisSoftware=x$analysisSoftware$enName,
-         experimentalStrategy=x$experimentalStrategy$enName,
-         uuid=x$uuid,id=x$id))
+sapply(res$content, function(x){
+return(c(analysisSoftware=x$fileName,uuid=x$uuid,relativePath=x$relativePath))
 })
+
+res <- getCancerStudyFile(fileName = "TCGA_ESCA_DESeq2_202162637891")
+sapply(res$content, function(x){
+  return(c(fileName=x$fileName,uuid=x$uuid,relativePath=x$relativePath))
+})
+
+readCancerFile(uuid = "c752940e-9351-4f96-8880-76232ce9a327",location = "ALIOSS")
+res <- getCancerStudyFile(uuid = "c752940e-9351-4f96-8880-76232ce9a327")
+sapply(res$content, function(x){
+  return(c(fileName=x$fileName,uuid=x$uuid,relativePath=x$relativePath))
+})
+readCancerFile(keyword = "DESeq2")
+res <- getCancerStudyFile(keyword = "DESeq2")
+msg_df <- sapply(res$content, function(x){
+  return(c(fileName=x$fileName,uuid=x$uuid,relativePath=x$relativePath))
+})
+as.data.frame(t(msg_df))
+
+res <- getCancerStudyFile(cancer = "ESCA",
+                          study = "count",
+                          dataOrigin = "TCGA")
+sapply(res$content, function(x){
+  return(c(fileName=x$fileName,uuid=x$uuid,relativePath=x$relativePath))
+})
+
+
 getCancerStudyByUUID("285144cb-397f-43a2-94e9-eaa51eeec686")
 getCancerStudyById(5)
 readFileById(id=1)
