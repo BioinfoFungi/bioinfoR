@@ -199,7 +199,7 @@ readFileById <-function(id,location=NULL,isLocalPath=global_env$isLocalPath){
 #' getCancerStudyFile("BRAC","transcript","TCGA")
 #'
 #' @export
-getCancerStudyFile <- function(cancer=NULL,study=NULL,dataOrigin=NULL,uuid=NULL,keyword=NULL,fileName=NULL,analysisSoftware=NULL,experimentalStrategy=NULL){
+getCancerStudyFile <- function(cancer=NULL,study=NULL,dataOrigin=NULL,uuid=NULL,keyword=NULL,fileName=NULL,analysisSoftware=NULL,workflow=NULL){
   query <- list( cancer = cancer,
                  study= study,
                  dataOrigin=dataOrigin,
@@ -207,7 +207,7 @@ getCancerStudyFile <- function(cancer=NULL,study=NULL,dataOrigin=NULL,uuid=NULL,
                  keyword=keyword,
                  uuid=uuid,
                  analysisSoftware=analysisSoftware,
-                 experimentalStrategy=experimentalStrategy)
+                 workflow=workflow)
   res <- http_get("/cancer_study/findByCategory",query = query)
   return(res)
 }
@@ -226,7 +226,9 @@ getCancerStudyById <- function(id){
 
 #' @export
 readCancerFile <-function(... , location=NULL,isLocalPath=global_env$isLocalPath){
+  message(...)
   res <- getCancerStudyFile(...)
+  message(length(res$content))
   if(length(res$content)==1){
     readFileByData(data = res$content[[1]],type = "cancer_study",location = location,isLocalPath = isLocalPath)
   }else if(length(res$content)==0){
@@ -297,13 +299,13 @@ addAttachment <- function(projectId,absolutePath,enName=NULL,relativePath=NULL,f
   return(res)
 }
 #' @export
-addCancerStudy <- function(cancer,study,dataOrigin,experimentalStrategy=NULL,analysisSoftware=NULL,absolutePath,relativePath=NULL){
+addCancerStudy <- function(cancer,study,dataOrigin,workflow=NULL,analysisSoftware=NULL,absolutePath,relativePath=NULL){
 
   body <- list(cancer = cancer,
                study= study,
                dataOrigin=dataOrigin,
                analysisSoftware=analysisSoftware,
-               experimentalStrategy=experimentalStrategy,
+               workflow=workflow,
                absolutePath=absolutePath,
                relativePath=relativePath)
   res <- http_post("/cancer_study",body = body)
@@ -354,10 +356,10 @@ addAnalysisSoftware <- function(name,enName){
   return(res)
 }
 #' @export
-addExperimentalStrategy<- function(name,enName){
+addWorkflow<- function(name,enName){
   body <- list(name=name,
                enName=enName)
-  res <- http_post("/ExperimentalStrategy",body = body)
+  res <- http_post("/workflow",body = body)
   return(res)
 }
 #################################################################
@@ -377,14 +379,14 @@ uploadAttachment <- function(projectId,path,enName=NULL,fileName=NULL,fileType=N
 
 #' @importFrom httr upload_file
 #' @export
-uploadCancerStudy<- function(cancer,study,dataOrigin,path,analysisSoftware=NULL,experimentalStrategy=NULL){
+uploadCancerStudy<- function(cancer,study,dataOrigin,path,analysisSoftware=NULL,workflow=NULL){
 
   body <- list(cancer = cancer,
                study= study,
                dataOrigin=dataOrigin,
                file=upload_file(path),
                analysisSoftware=analysisSoftware,
-               experimentalStrategy=experimentalStrategy)
+               workflow=workflow)
 
   res <- http_post("/cancer_study/upload",body = body,encode = "multipart")
   return(res)

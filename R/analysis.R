@@ -230,9 +230,9 @@ tcgaSurvival <- function(cancer,genes,dataType = "FPKM",location=NULL,isLocalPat
 #' @importFrom dplyr right_join
 #'
 #' @export
-tcgaMutationWider <- function(cancer,location=NULL,isLocalPath=global_env$isLocalPath){
-  tcga_mutation <- readCancerFile(cancer = cancer ,study = "mutation_varscan2",dataOrigin = "TCGA",isLocalPath = isLocalPath,location = location)%>%
-    mutate(Tumor_Sample_Barcode = stringr::str_sub(Tumor_Sample_Barcode, 1, 12))
+tcgaMutationWider <- function(cancer,study = "mutation_varscan2",dataOrigin="TCGA",location=NULL,isLocalPath=global_env$isLocalPath){
+  tcga_mutation <- readCancerFile(cancer=cancer,study=study,dataOrigin=dataOrigin,isLocalPath = isLocalPath,location = location)%>%
+    mutate(Tumor_Sample_Barcode = string:str_sub(Tumor_Sample_Barcode, 1, 12))
   gene_sample <- tcga_mutation%>%
     dplyr::select(Hugo_Symbol,Tumor_Sample_Barcode)
   gene_sample <- gene_sample[!duplicated(gene_sample),]

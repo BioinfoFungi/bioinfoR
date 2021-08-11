@@ -12,7 +12,7 @@ getCancerStudyFile(
   keyword = NULL,
   fileName = NULL,
   analysisSoftware = NULL,
-  experimentalStrategy = NULL
+  workflow = NULL
 )
 }
 \arguments{
